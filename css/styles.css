@@ -1,0 +1,136 @@
+/* =========================================
+   1. CSS Variables & Theme Setup
+   ========================================= */
+:root {
+    /* Light Theme (Default) */
+    --bg-color: #FAFAFA;
+    --text-color: #1A1A1A;
+    --text-muted: #666666;
+    --accent-color: #2C2C2C;
+    --border-color: #E0E0E0;
+    --card-bg: #FFFFFF;
+    
+    /* Typography */
+    --font-main: 'Helvetica Neue', Arial, sans-serif;
+    --spacing-unit: 1rem;
+}
+
+[data-theme="dark"] {
+    --bg-color: #121212;
+    --text-color: #F5F5F5;
+    --text-muted: #A0A0A0;
+    --accent-color: #FFFFFF;
+    --border-color: #333333;
+    --card-bg: #1E1E1E;
+}
+
+/* =========================================
+   2. Reset & Base (Mobile First)
+   ========================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container {
+    width: 100%;
+    padding: 0 var(--spacing-unit);
+}
+
+/* =========================================
+   3. Layout & Components (Mobile First)
+   ========================================= */
+   
+/* Flexbox #1: Header */
+.header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem var(--spacing-unit);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.main-nav {
+    display: none; /* Скрыто на мобильных (пока не добавим бургер) */
+}
+
+/* Hero Section */
+.hero {
+    padding: 4rem 0;
+}
+
+.hero-title {
+    font-size: 2rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+}
+
+.hero-subtitle {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+/* Grid #1: Features */
+.features-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Mobile: 1 колонка */
+    gap: 1.5rem;
+    padding: 3rem 0;
+}
+
+.feature-card {
+    background-color: var(--card-bg);
+    padding: 2rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+/* =========================================
+   4. Media Queries (min. 2 breakpoints req)
+   ========================================= */
+
+/* Breakpoint 1: Tablets */
+@media (min-width: 768px) {
+    .container {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+
+    .main-nav {
+        display: flex; /* Flexbox #2: Navigation */
+        gap: 2rem;
+        align-items: center;
+    }
+
+    .main-nav a {
+        text-decoration: none;
+        color: var(--text-color);
+        font-weight: 500;
+    }
+
+    .hero-title {
+        font-size: 3rem;
+    }
+}
+
+/* Breakpoint 2: Desktops */
+@media (min-width: 1024px) {
+    .container {
+        max-width: 960px;
+    }
+
+    .features-grid {
+        /* Grid #2: 3 колонки на десктопе */
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
