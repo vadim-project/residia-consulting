@@ -79,3 +79,109 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+
+    /* =========================================
+       Интерактив 3: Form Wizard & Validation
+       Требования: RegExp, Event Listeners (input, submit), preventDefault
+       ========================================= */
+       
+    const bookingForm = document.getElementById('booking-form');
+    
+    if (bookingForm) {
+        const btnNext = document.getElementById('btn-next');
+        const btnPrev = document.getElementById('btn-prev');
+        const step1 = document.getElementById('step-1');
+        const step2 = document.getElementById('step-2');
+        const progressSteps = document.querySelectorAll('.progress-step');
+        const formSuccess = document.getElementById('form-success');
+        const wizardProgress = document.querySelector('.wizard-progress');
+
+        // Инпуты Шага 1
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const phoneInput = document.getElementById('phone');
+
+        // Регулярные выражения (RegExp)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        // Проверяем польский номер: строго +48 и 9 цифр (без пробелов для простоты)
+        const phoneRegex = /^\+48\d{9}$/; 
+
+        // Функция: Показать/скрыть ошибку (Манипуляция DOM)
+        const showError = (input, show) => {
+            const formGroup = input.parentElement;
+            if (show) {
+                formGroup.classList.add('has-error');
+            } else {
+                formGroup.classList.remove('has-error');
+            }
+        };
+
+        // Event Listener #3: 'input'
+        // Убираем красную подсветку, как только клиент начинает исправлять ошибку
+        [nameInput, emailInput, phoneInput].forEach(input => {
+            input.addEventListener('input', () => {
+                showError(input, false);
+            });
+        });
+
+        // Функция: Проверка полей перед переходом на Шаг 2
+        const validateStep1 = () => {
+            let isValid = true;
+
+            // Проверка имени (не пустое)
+            if (nameInput.value.trim() === '') {
+                showError(nameInput, true);
+                isValid = false;
+            }
+
+            // Проверка Email (через RegExp)
+            if (!emailRegex.test(emailInput.value.trim())) {
+                showError(emailInput, true);
+                isValid = false;
+            }
+
+            // Проверка телефона (через RegExp, удаляем пробелы, если юзер их ввел)
+            const cleanPhone = phoneInput.value.replace(/\s/g, ''); 
+            if (!phoneRegex.test(cleanPhone)) {
+                showError(phoneInput, true);
+                isValid = false;
+            }
+
+            return isValid;
+        };
+
+        // Логика кнопки "Далее"
+        btnNext.addEventListener('click', () => {
+            if (validateStep1()) {
+                // Прячем Шаг 1, показываем Шаг 2
+                step1.classList.remove('active');
+                step2.classList.add('active');
+                
+                // Обновляем прогресс-бар
+                progressSteps[0].classList.remove('active');
+                progressSteps[1].classList.add('active');
+            }
+        });
+
+        // Логика кнопки "Назад"
+        btnPrev.addEventListener('click', () => {
+            step2.classList.remove('active');
+            step1.classList.add('active');
+            
+            progressSteps[1].classList.remove('active');
+            progressSteps[0].classList.add('active');
+        });
+
+        // Event Listener #4: 'submit'
+        bookingForm.addEventListener('submit', (e) => {
+            // Обязательное требование комиссии: отмена стандартного поведения
+            e.preventDefault(); 
+            
+            // Здесь в реальном проекте был бы Fetch API для отправки на сервер
+            // Но мы просто показываем красивое сообщение об успехе
+            
+            step2.classList.remove('active'); // Прячем форму
+            wizardProgress.style.display = 'none'; // Прячем индикаторы шагов
+            formSuccess.classList.remove('hidden'); // Показываем блок успеха
+        });
+    }
