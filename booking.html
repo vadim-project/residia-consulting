@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оставить заявку | Boutique Legal</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="logo">Boutique.</div>
+            <nav class="main-nav">
+                <a href="index.html">Главная</a>
+                <a href="services.html">Услуги</a>
+                <a href="booking.html" class="active btn-primary">Связаться</a>
+            </nav>
+            <button id="theme-toggle" class="theme-toggle" aria-label="Переключить тему">🌓</button>
+        </div>
+    </header>
+
+    <main class="fade-in">
+        <section class="booking-section">
+            <div class="container container-small">
+                <h1 class="page-title">Начать сотрудничество</h1>
+                <p class="page-subtitle">Оставьте вводные данные. Мы проанализируем ваш кейс и свяжемся в течение 24 часов.</p>
+
+                <div class="form-wizard">
+                    <div class="wizard-progress">
+                        <div class="progress-step active" data-step="1">1. Контакты</div>
+                        <div class="progress-step" data-step="2">2. Задача</div>
+                    </div>
+
+                    <form id="booking-form" class="boutique-form" novalidate>
+                        <div class="form-step active" id="step-1">
+                            <div class="form-group">
+                                <label for="name">Имя и Фамилия</label>
+                                <input type="text" id="name" name="name" placeholder="John Doe" required>
+                                <span class="error-message">Пожалуйста, введите ваше имя</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="email">Электронная почта</label>
+                                <input type="email" id="email" name="email" placeholder="hello@example.com" required>
+                                <span class="error-message">Введите корректный email</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="phone">Телефон (Польша)</label>
+                                <input type="tel" id="phone" name="phone" placeholder="+48 XXX XXX XXX" required>
+                                <span class="error-message">Формат: +48 и 9 цифр</span>
+                            </div>
+
+                            <button type="button" class="btn-next" id="btn-next">Далее &rarr;</button>
+                        </div>
+
+                        <div class="form-step" id="step-2">
+                            <div class="form-group">
+                                <label for="service">Интересующая услуга</label>
+                                <select id="service" name="service" required>
+                                    <option value="" disabled selected>Выберите из списка...</option>
+                                    <option value="b2b-company">Регистрация компании (Sp. z o.o.)</option>
+                                    <option value="b2b-incubator">Бизнес-инкубатор</option>
+                                    <option value="b2c-karta">Karta Pobytu</option>
+                                    <option value="b2c-bluecard">Blue Card</option>
+                                    <option value="other">Другое / Консультация</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="message">Краткое описание ситуации (опционально)</label>
+                                <textarea id="message" name="message" rows="4" placeholder="Например: у меня IT-контракт B2B, хочу легализоваться..."></textarea>
+                            </div>
+
+                            <div class="wizard-actions">
+                                <button type="button" class="btn-prev" id="btn-prev">&larr; Назад</button>
+                                <button type="submit" class="btn-submit">Отправить запрос</button>
+                            </div>
+                        </div>
+
+                        <div class="form-success hidden" id="form-success">
+                            <h3>Заявка принята</h3>
+                            <p>Мы получили ваши данные и скоро свяжемся с вами.</p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

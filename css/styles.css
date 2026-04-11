@@ -263,3 +263,144 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* =========================================
+   6. Форма заявки (Form Wizard)
+   ========================================= */
+
+.container-small {
+    max-width: 600px !important; /* Узкий контейнер для комфортного чтения формы */
+    margin: 0 auto;
+}
+
+.booking-section {
+    padding-bottom: 5rem;
+}
+
+/* Прогресс-бар шагов */
+.wizard-progress {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.progress-step {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.progress-step.active {
+    color: var(--text-color);
+}
+
+/* Скрываем шаги, которые не активны */
+.form-step {
+    display: none;
+    animation: fadeIn 0.4s ease forwards;
+}
+
+.form-step.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Элементы формы: стиль минимализма */
+.form-group {
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.boutique-form label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.boutique-form input,
+.boutique-form select,
+.boutique-form textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    font-size: 1rem;
+    padding: 0.5rem 0;
+    transition: border-color 0.3s ease;
+}
+
+.boutique-form input:focus,
+.boutique-form select:focus,
+.boutique-form textarea:focus {
+    outline: none;
+    border-bottom-color: var(--text-color);
+}
+
+/* Ошибки валидации (пока скрыты) */
+.error-message {
+    display: none;
+    color: #e74c3c;
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    position: absolute;
+    bottom: -1.5rem;
+    left: 0;
+}
+
+.form-group.has-error input {
+    border-bottom-color: #e74c3c;
+}
+
+.form-group.has-error .error-message {
+    display: block;
+}
+
+/* Кнопки формы */
+.btn-next,
+.btn-prev,
+.btn-submit {
+    background: transparent;
+    border: 1px solid var(--text-color);
+    color: var(--text-color);
+    padding: 0.8rem 2rem;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.btn-next:hover,
+.btn-submit:hover {
+    background: var(--text-color);
+    color: var(--bg-color);
+}
+
+.btn-submit {
+    background: var(--text-color);
+    color: var(--bg-color);
+}
+
+.btn-submit:hover {
+    opacity: 0.9;
+}
+
+.wizard-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+}
+
+.form-success {
+    text-align: center;
+    padding: 3rem 0;
+}
