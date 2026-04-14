@@ -13,14 +13,6 @@
     --spacing-unit: 1rem;
 }
 
-[data-theme="dark"] {
-    --bg-color: #1A1A1A;
-    --text-color: #F7FAFC;
-    --text-muted: #ABAFB6;
-    --accent-color: #10B981;
-    --border-color: #333333;
-    --card-bg: #2D2D2D;
-}
 
 * {
     margin: 0;
@@ -218,6 +210,8 @@ body {
 .logo {
     justify-self: start; 
 }
+
+
 
 /* =========================================
    FAB (Улучшенная анимация)
@@ -450,8 +444,65 @@ body {
     z-index: 1;
 }
 
-[data-theme="dark"] .service-card:hover {
-    box-shadow: 0 10px 30px rgba(255, 255, 255, 0.02);
+/* =========================================
+   Премиальный переключатель темы (Pill Switch)
+   ========================================= */
+.theme-switch {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 60px;
+    height: 32px;
+    padding: 0 6px;
+    border-radius: 30px;
+    background-color: var(--border-color); /* Серый фон по умолчанию */
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.4s ease;
+    outline: none;
+    justify-self: end; /* Держим прижатой к правому краю шапки */
+}
+
+/* Белый кружок (ползунок) */
+.theme-switch-slider {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background-color: #FFFFFF;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    /* Плавное движение с легким отскоком */
+    transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    z-index: 2;
+}
+
+/* Настройки векторных иконок */
+.theme-switch svg {
+    width: 16px;
+    height: 16px;
+    z-index: 1;
+    color: var(--text-muted);
+    transition: color 0.4s ease;
+}
+
+/* =========================================
+   Состояние ТЕМНОЙ ТЕМЫ (Анимация переключения)
+   ========================================= */
+
+[data-theme="dark"] .theme-switch {
+    background-color: var(--text-color); 
+}
+
+[data-theme="dark"] .theme-switch-slider {
+    transform: translateX(28px); 
+    background-color: var(--accent-color); 
+}
+
+[data-theme="dark"] .icon-moon {
+    color: var(--bg-color); 
 }
 
 .card-tag {
