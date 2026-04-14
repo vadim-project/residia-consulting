@@ -185,3 +185,18 @@ document.addEventListener('DOMContentLoaded', () => {
             formSuccess.classList.remove('hidden'); // Показываем блок успеха
         });
     }
+
+const fabToggle = document.getElementById('fab-toggle');
+    const fabWrapper = document.getElementById('fab-wrapper'); // <--- поменяли
+
+    if (fabToggle && fabWrapper) {
+        fabToggle.addEventListener('click', () => {
+            fabWrapper.classList.toggle('is-open'); // <--- поменяли
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!fabWrapper.contains(event.target) && fabWrapper.classList.contains('is-open')) {
+                fabWrapper.classList.remove('is-open'); // <--- поменяли
+            }
+        });
+    }

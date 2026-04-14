@@ -42,13 +42,11 @@ body {
 }
 
    
-/* Flexbox #1: Header */
 .header-inner {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; 
     align-items: center;
-    padding: 1.5rem var(--spacing-unit);
-    border-bottom: 1px solid var(--border-color);
+    padding: 1.5rem 0; 
 }
 
 .main-nav {
@@ -217,6 +215,107 @@ body {
     border-radius: 4px;
 }
 
+.logo {
+    justify-self: start; 
+}
+
+/* =========================================
+   FAB (Улучшенная анимация)
+   ========================================= */
+.fab-wrapper {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    left: auto; /* Убиваем прилипание к левому краю */
+    top: auto;
+    width: 64px;
+    height: 64px;
+    z-index: 99999;
+}
+
+/* Главная кнопка */
+.fab-toggle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background-color: var(--accent-color);
+    color: #FFFFFF;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    z-index: 10;
+    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+    /* Плавная анимация движения ВВЕРХ */
+    transition: transform 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.27), background-color 0.3s;
+}
+
+/* Движение ВВЕРХ при открытии */
+.fab-wrapper.is-open .fab-toggle {
+    transform: translateY(-200px); /* Едет вверх на 200px (с легким отскоком благодаря cubic-bezier) */
+    background-color: var(--text-color);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Меню иконок под кнопкой */
+.fab-menu {
+    position: absolute;
+    bottom: 0;
+    right: 8px; /* Центрируем 48px иконку под 64px кнопкой: (64-48)/2 = 8 */
+    display: flex;
+    flex-direction: column-reverse; /* Растут снизу вверх */
+    gap: 12px;
+}
+
+/* Иконки соцсетей */
+.fab-action {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    
+    /* Спрятаны (прозрачные и опущены вниз) */
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.27);
+}
+
+/* При открытии - плавно появляются на своих местах */
+.fab-wrapper.is-open .fab-action {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+    transition-delay: var(--delay);
+}
+
+.fab-action:hover {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #FFFFFF;
+    transform: scale(1.1);
+}
+
+/* Иконки внутри кнопки (? и ✕) */
+.fab-icon-question, .fab-icon-close {
+    position: absolute;
+    transition: all 0.4s ease;
+}
+.fab-icon-close { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+.fab-wrapper.is-open .fab-icon-question { opacity: 0; transform: rotate(90deg) scale(0.5); }
+.fab-wrapper.is-open .fab-icon-close { opacity: 1; transform: rotate(0) scale(1); }
+
 @media (min-width: 768px) {
     .container {
         max-width: 720px;
@@ -305,6 +404,10 @@ body {
     transition: opacity 0.4s ease;
 }
 
+.services-content {
+    padding-bottom: 2.5rem;   
+}
+
 .service-card {
     position: relative; 
     background: var(--card-bg);
@@ -389,6 +492,112 @@ body {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 2rem auto;
+}
+
+   /* Динамичная бегущая строка (Marquee) */ 
+.marquee-wrapper {
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+    padding: 2rem 0; 
+    margin-bottom: 0;
+    border-bottom: none;
+}
+
+.marquee-content {
+    display: inline-block;
+    animation: marqueeScroll 20s linear infinite;
+    font-size: 1.5rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-color);
+}
+
+.marquee-content span {
+    margin: 0 1.5rem;
+}
+
+@keyframes marqueeScroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* =========================================
+   Темный блок CTA (Call to Action)
+   ========================================= */
+.cta-dark {
+    background-color: var(--text-color); /* Глубокий графитовый фон */
+    color: var(--bg-color); /* Белый текст */
+    padding: 6rem 0;
+    margin-top: 0; /* Приклеиваем прямо к бегущей строке */
+}
+
+.cta-title {
+    font-size: 3rem;
+    font-weight: 400;
+    margin-bottom: 1rem;
+    color: var(--bg-color);
+}
+
+.cta-desc {
+    color: var(--border-color); /* Используем светло-серый для описания */
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+}
+
+.cta-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3rem;
+}
+
+/* Светлая кнопка для темного фона */
+.btn-solid-light {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 3rem;
+    font-size: 1rem;
+    text-decoration: none;
+    background-color: var(--accent-color); /* Изумрудная кнопка */
+    color: #FFFFFF;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.btn-solid-light:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+}
+
+/* Минималистичные соцсети */
+.social-links {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.social-links a {
+    color: var(--bg-color);
+    text-decoration: none;
+    font-family: monospace;
+    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.social-links a:hover {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #FFFFFF;
 }
 
 @keyframes spin {
