@@ -41,6 +41,22 @@ body {
     padding: 1.5rem 0; 
 }
 
+.logo {
+    justify-self: start; 
+    display: flex;
+    align-items: center;
+}
+
+/* Стили для нового класса логотипа */
+.brand-logo {
+    display: block;
+    height: 40px; /* Базовая высота, чтобы шапка не раздувалась */
+    width: auto;
+    /* Раздуваем логотип в 3 раза. Если будет слишком большим - поставь 2 или 2.5 */
+    transform: scale(6)     ;
+    transform-origin: left center; /* Точка отсчета для увеличения - левый край */
+}
+
 .main-nav {
     display: none;
 }
