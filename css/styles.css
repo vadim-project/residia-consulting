@@ -393,7 +393,8 @@ body {
 }
 
 .services-content {
-    padding-bottom: 2.5rem;   
+    padding-bottom: 2.5rem;  
+    padding-bottom: 3rem; 
 }
 
 .service-card {
