@@ -488,6 +488,25 @@ body {
     transition: color 0.4s ease;
 }
 
+.bg-dark-ribbon {
+    background-color: var(--text-color); /* Глубокий графитовый фон */
+    padding: 5rem 0; /* Делаем ленту чуть шире для солидности */
+    margin-bottom: 5rem;
+}
+
+/* Перекрашиваем элементы внутри только этой темной ленты */
+.bg-dark-ribbon .stat-number {
+    color: var(--bg-color); /* Белые цифры */
+}
+
+.bg-dark-ribbon .stat-label {
+    color: var(--border-color); /* Светло-серый текст, чтобы не сливался */
+}
+
+
+.text-about-service {
+    text-align: center;
+}
 /* =========================================
    Состояние ТЕМНОЙ ТЕМЫ (Анимация переключения)
    ========================================= */

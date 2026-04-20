@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Residia Consulting. | Легализация в Варшаве</title>
     <link rel="stylesheet" href="css/styles.css">
+    <style>html { scroll-behavior: smooth; }</style>
 </head>
 <body>
     <header class="site-header">
@@ -13,9 +14,9 @@
                 <img src="img/logo.svg" alt="RESIDIA Logo" width="140" height="35" style="vertical-align: middle;">
             </div>
             <nav class="main-nav">
-                <a href="index.html" class="active">Главная</a>
-                <a href="services.html">Услуги</a>
-                <a href="booking.html" class="btn-primary">Связаться</a>
+                <a href="#home" class="active">Главная</a>
+                <a href="#services">Услуги</a>
+                <a href="#contact" class="btn-primary">Связаться</a>
             </nav>
             <button id="theme-toggle" class="theme-switch" aria-label="Переключить тему">
                 <span class="theme-switch-slider"></span>
@@ -40,19 +41,19 @@
     </header>
 
     <main>
-        <section class="hero-premium">
+        <section id="home" class="hero-premium">
             <div class="container text-center">
                 <div class="hero-badge">«Excellence in Legal & Business»</div>
                 <h1 class="hero-title-large">Ваш бизнес.<br><span style="color: var(--accent-color);">Наша бюрократия.</span></h1>
                 <p class="hero-subtitle-large" style="margin: 0 auto 3rem;">Решения по легализации и бизнес-сопровождению в Варшаве, Польша.</p>
                 <div class="hero-actions" style="justify-content: center;">
-                    <a href="booking.html" class="btn-solid">Обсудить задачу</a>
-                    <a href="services.html" class="btn-outline">Наши компетенции</a>
+                    <a href="#contact" class="btn-solid">Обсудить задачу</a>
+                    <a href="#services" class="btn-outline">Наши компетенции</a>
                 </div>
             </div>
         </section>
 
-        <section class="stats-section border-top-bottom">
+        <section class="stats-section bg-dark-ribbon">
             <div class="container">
                 <div class="stats-flex">
                     <div class="stat-item">
@@ -71,11 +72,52 @@
             </div>
         </section>
 
+        <section id="services" class="services-content">
+            <div class="container">
+                <div id="services-grid" class="services-flex-container">
+                    <div class="service-card" data-category="b2b">
+                        <div class="card-bg-number">01</div>
+                        <div class="card-content">
+                            <div class="card-tag">B2B</div>
+                            <h3>Регистрация Sp. z o.o.</h3>
+                            <p>Полный цикл открытия компании в Польше. Подготовка устава, нотариальное сопровождение, регистрация в KRS, VAT и ZUS.</p>
+                        </div>
+                    </div>
+                    <div class="service-card" data-category="b2b">
+                        <div class="card-bg-number">02</div>
+                        <div class="card-content">
+                            <div class="card-tag">B2B</div>
+                            <h3>Бизнес-инкубатор</h3>
+                            <p>Легальная работа в Польше без регистрации собственного юрлица. Идеально для фрилансеров и IT-контракторов.</p>
+                        </div>
+                    </div>
+                    <div class="service-card" data-category="b2c">
+                        <div class="card-bg-number">03</div>
+                        <div class="card-content">
+                            <div class="card-tag">B2C</div>
+                            <h3>Karta Pobytu</h3>
+                            <p>ВНЖ на основании работы, бизнеса или воссоединения семьи. От аудита документов до получения пластика.</p>
+                        </div>
+                    </div>
+                    <div class="service-card" data-category="b2c">
+                        <div class="card-bg-number">04</div>
+                        <div class="card-content">
+                            <div class="card-tag">B2C</div>
+                            <h3>Blue Card (EU)</h3>
+                            <p>Оформление ВНЖ для высококвалифицированных специалистов. Ускоренная процедура и расширенные права для семьи.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="loader" class="loader hidden"></div>
+            </div>
+        </section>
+
         <section class="approach-section">
             <div class="container">
                 <div class="section-header text-center">
-                    <h2 class="section-title">Почему RESIDIA<span class="text-accent">.</span></h2>
-                    <p class="section-desc">Индивидуальный подход к процессам легализации.</p>
+                    <h1 class="hero-title-large" >Почему <span>мы</span>?</h1>
+                <p class="hero-subtitle-large" style="color: var(--accent-color);">Решения по легализации и бизнес-сопровождению в Варшаве, Польша.</p>
                 </div>
 
                 <div class="features-grid">
@@ -97,6 +139,14 @@
                 </div>
             </div>
         </section>
+        
+        <section id="contact" style="padding: 6rem 0; text-align: center;">
+            <div class="container">
+                <h2>Оставить заявку</h2>
+                <p style="color: var(--text-muted); margin-top: 1rem;">Блок формы появится здесь</p>
+            </div>
+        </section>
+
     </main>
     <div class="fab-wrapper" id="fab-wrapper">
         
