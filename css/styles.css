@@ -732,3 +732,223 @@
         text-align: center;
         padding: 3rem 0;
     }
+
+    /* =========================================
+   Contact Section
+   ========================================= */
+.contact-section {
+    padding: 6rem 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.contact-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4rem;
+}
+
+@media (min-width: 768px) {
+    .contact-grid {
+        grid-template-columns: 1fr 1.4fr;
+        gap: 6rem;
+        align-items: start;
+    }
+}
+
+.contact-desc {
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin: 1.5rem 0 2.5rem;
+}
+
+.contact-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.contact-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    text-decoration: none;
+}
+
+.contact-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.contact-value {
+    font-size: 1rem;
+    color: var(--text-color);
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+a.contact-item:hover .contact-value {
+    color: var(--accent-color);
+}
+
+/* Форма */
+.contact-form-wrap {
+    position: relative;
+}
+
+.contact-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.contact-form .form-group {
+    margin-bottom: 1.8rem;
+    position: relative;
+}
+
+.contact-form label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.contact-form input,
+.contact-form select,
+.contact-form textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    font-size: 1rem;
+    padding: 0.5rem 0;
+    transition: border-color 0.3s ease;
+    border-radius: 0;
+}
+
+.contact-form input:focus,
+.contact-form select:focus,
+.contact-form textarea:focus {
+    outline: none;
+    border-bottom-color: var(--accent-color);
+}
+
+.contact-form .form-group.has-error input,
+.contact-form .form-group.has-error select {
+    border-bottom-color: #e74c3c;
+}
+
+.contact-form .form-group.has-error .error-message {
+    display: block;
+}
+
+.btn-contact-submit {
+    width: 100%;
+    padding: 1rem;
+    background-color: var(--text-color);
+    color: var(--bg-color);
+    border: none;
+    font-family: var(--font-main);
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: opacity 0.3s ease;
+    margin-top: 0.5rem;
+}
+
+.btn-contact-submit:hover {
+    opacity: 0.85;
+}
+
+.btn-loading {
+    display: none;
+}
+
+.btn-contact-submit.is-loading .btn-label {
+    display: none;
+}
+
+.btn-contact-submit.is-loading .btn-loading {
+    display: inline;
+}
+
+/* Success */
+.cf-success {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background-color: var(--bg-color);
+}
+
+.success-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--accent-color);
+    color: #fff;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+}
+
+/* Позиционирование блока успеха поверх формы */
+.cf-success {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background-color: var(--bg-color);
+    z-index: 5;
+    animation: fadeIn 0.5s ease forwards;
+}
+
+.contact-form.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Состояние загрузки кнопки */
+.btn-contact-submit .btn-loading {
+    display: none;
+}
+
+.btn-contact-submit.is-loading .btn-label {
+    display: none;
+}
+
+.btn-contact-submit.is-loading .btn-loading {
+    display: inline-block;
+}
+
+/* Валидация */
+.form-group .error-message {
+    display: none;
+    color: #e74c3c;
+    font-size: 0.75rem;
+    position: absolute;
+    bottom: -1.2rem;
+    left: 0;
+}
+
+.form-group.has-error input, 
+.form-group.has-error select {
+    border-bottom-color: #e74c3c !important;
+}
+
+.form-group.has-error .error-message {
+    display: block;
+}

@@ -152,72 +152,77 @@
             </div>
         </section>
         
-        <section id="contact" class="booking-section">
-            <div class="container container-small">
-                <h2 class="page-title" style="text-align: center;">Начать сотрудничество</h2>
-                <p class="page-subtitle" style="text-align: center; margin-bottom: 3rem;">Оставьте вводные данные. Мы проанализируем ваш кейс и свяжемся в течение 24 часов.</p>
-
-                <div class="form-wizard">
-                    <div class="wizard-progress">
-                        <div class="progress-step active" data-step="1">1. Контакты</div>
-                        <div class="progress-step" data-step="2">2. Задача</div>
-                    </div>
-
-                    <form id="booking-form" class="boutique-form" novalidate>
-                        <div class="form-step active" id="step-1">
-                            <div class="form-group">
-                                <label for="name">Имя и Фамилия</label>
-                                <input type="text" id="name" name="name" placeholder="John Doe" required>
-                                <span class="error-message">Пожалуйста, введите ваше имя</span>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="email">Электронная почта</label>
-                                <input type="email" id="email" name="email" placeholder="hello@example.com" required>
-                                <span class="error-message">Введите корректный email</span>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="phone">Телефон (Польша)</label>
-                                <input type="tel" id="phone" name="phone" placeholder="+48 XXX XXX XXX" required>
-                                <span class="error-message">Формат: +48 и 9 цифр</span>
-                            </div>
-
-                            <button type="button" class="btn-next" id="btn-next">Далее &rarr;</button>
-                        </div>
-
-                        <div class="form-step" id="step-2">
-                            <div class="form-group">
-                                <label for="service">Интересующая услуга</label>
-                                <select id="service" name="service" required>
-                                    <option value="" disabled selected>Выберите из списка...</option>
-                                    <option value="b2b-company">Регистрация компании (Sp. z o.o.)</option>
-                                    <option value="b2b-incubator">Бизнес-инкубатор</option>
-                                    <option value="b2c-karta">Karta Pobytu</option>
-                                    <option value="b2c-bluecard">Blue Card</option>
-                                    <option value="other">Другое / Консультация</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="message">Краткое описание ситуации (опционально)</label>
-                                <textarea id="message" name="message" rows="4" placeholder="Например: у меня IT-контракт B2B, хочу легализоваться..."></textarea>
-                            </div>
-
-                            <div class="wizard-actions">
-                                <button type="button" class="btn-prev" id="btn-prev">&larr; Назад</button>
-                                <button type="submit" class="btn-submit">Отправить запрос</button>
-                            </div>
-                        </div>
-
-                        <div class="form-success hidden" id="form-success">
-                            <h3>Заявка принята</h3>
-                            <p>Мы получили ваши данные и скоро свяжемся с вами.</p>
-                        </div>
-                    </form>
+    <section id="contact" class="contact-section">
+    <div class="container">
+        <div class="contact-grid">
+            <div class="contact-info">
+                <h2 class="section-title">Начать<br>сотрудничество<span class="text-accent">.</span></h2>
+                <p class="contact-desc">Оставьте заявку — мы проанализируем ваш кейс и свяжемся в течение 24 часов. Старт работы от <strong>150 PLN</strong>.</p>
+                <div class="contact-details">
+                    <a href="tel:+48571528293" class="contact-item">
+                        <span class="contact-label">Телефон</span>
+                        <span class="contact-value">+48 571 528 293</span>
+                    </a>
+                    <a href="https://t.me/residia_consulting" class="contact-item">
+                        <span class="contact-label">Telegram</span>
+                        <span class="contact-value">@residia</span>
+                    </a>
                 </div>
             </div>
-        </section>
+
+            <div class="contact-form-wrap">
+                <form action="https://formspree.io/f/maqavepd" method="POST" id="contact-form" class="contact-form" novalidate>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cf-name">Имя</label>
+                            <input type="text" id="cf-name" name="name" placeholder="John Doe" required>
+                            <span class="error-message">Введите имя</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="cf-phone">Телефон</label>
+                            <input type="tel" id="cf-phone" name="phone" placeholder="+48 XXX XXX XXX" required>
+                            <span class="error-message">Формат: +48 и 9 цифр</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cf-telegram">Telegram <span style="color:var(--text-muted)">(опционально)</span></label>
+                        <input type="text" id="cf-telegram" name="telegram" placeholder="@username">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cf-service">Услуга</label>
+                        <select id="cf-service" name="service" required>
+                            <option value="" disabled selected>Выберите из списка...</option>
+                            <option value="Регистрация Sp. z o.o.">Регистрация Sp. z o.o.</option>
+                            <option value="Бизнес-инкубатор">Бизнес-инкубатор</option>
+                            <option value="Karta Pobytu">Karta Pobytu</option>
+                            <option value="Blue Card">Blue Card</option>
+                            <option value="Консультация">Консультация</option>
+                        </select>
+                        <span class="error-message">Выберите услугу</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cf-message">Краткое описание ситуации</label>
+                        <textarea id="cf-message" name="message" rows="3" placeholder="Например: IT-контракт B2B..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-contact-submit">
+                        <span class="btn-label">Отправить заявку</span>
+                        <span class="btn-loading">Отправка...</span>
+                    </button>
+                </form>
+
+                <div class="cf-success hidden" id="cf-success">
+                    <div class="success-icon">✓</div>
+                    <h3>Заявка принята</h3>
+                    <p>Свяжемся с вами в течение 24 часов.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
     </main>
 
     <div class="fab-wrapper" id="fab-wrapper">
