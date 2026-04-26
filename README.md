@@ -1,4 +1,5 @@
 # RESIDIA Consulting — Legalizacja w Warszawie
+https://vadim-project.github.io/residia-consulting/
 
 > **To nie jest projekt szkolny z fałszywymi danymi.**  
 > To działająca strona internetowa prawdziwej firmy konsultingowej z Warszawy.  
@@ -84,7 +85,7 @@ residia/
 
 ## Live Demo
 
-🌐 https://vadim-project.github.io/boutique-legal
+🌐 https://vadim-project.github.io/residia-consulting/
 
 ---
 
