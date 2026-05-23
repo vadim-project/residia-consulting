@@ -27,6 +27,27 @@ const questionsFlow = [
             { id: "student", label: "Студенческий статус (без визы/карты)", next: "days_left", scoring: { risk: 0, complexity: 1 } },
             { id: "expired", label: "Документы просрочены / нет оснований", next: "overdue_details", scoring: { risk: 3, complexity: 3 } }
         ]
+    },
+    {
+        id: "days_left",
+        question: "Сколько времени у вас осталось до окончания текущих документов?",
+        options: [
+            { id: "more_than_3_months", label: "Более 3 месяцев (безопасный запас)", next: "employment_type", scoring: { risk: 0, complexity: 1 } },
+            { id: "1_to_3_months", label: "От 1 до 3 месяцев (время подавать документы)", next: "employment_type", scoring: { risk: 1, complexity: 1 } },
+            { id: "less_than_30_days", label: "Меньше 30 дней (критический срок)", next: "employment_type", scoring: { risk: 2, complexity: 2 } },
+            { id: "already_expired", label: "Уже просрочены / нахожусь на печати", next: "employment_type", scoring: { risk: 3, complexity: 3 } }
+        ]
+    },
+    {
+        id: "employment_type",
+        question: "Каков ваш основной источник дохода или тип занятости в Польше?",
+        options: [
+            { id: "umowa", label: "Работа по найму (Umowa o pracę / zlecenie)", next: "family_status", scoring: { risk: 0, complexity: 1 } },
+            { id: "b2b_it", label: "IT-контракт (B2B / Инкубатор / Blue Card)", next: "family_status", scoring: { risk: 0, complexity: 2 } },
+            { id: "business", label: "Свой бизнес (JDG / Spółka z o.o.)", next: "family_status", scoring: { risk: 0, complexity: 2 } },
+            { id: "student_status", label: "Студент вуза / полицеальной школы", next: "family_status", scoring: { risk: 0, complexity: 1 } },
+            { id: "other_income", label: "Обеспечивает семья / другие источники", next: "family_status", scoring: { risk: 1, complexity: 1 } }
+        ]
     }
 ];
 
