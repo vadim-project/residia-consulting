@@ -48,6 +48,16 @@ const questionsFlow = [
             { id: "student_status", label: "Студент вуза / полицеальной школы", next: "family_status", scoring: { risk: 0, complexity: 1 } },
             { id: "other_income", label: "Обеспечивает семья / другие источники", next: "family_status", scoring: { risk: 1, complexity: 1 } }
         ]
+    },
+    {
+        id: "family_status",
+        question: "Планируете ли вы легализовать членов семьи (супруг/а, дети) вместе с собой?",
+        options: [
+            { id: "single", label: "Нет, подаюсь один / одна", next: "lead_gate", scoring: { risk: 0, complexity: 0 } },
+            { id: "family_together", label: "Да, хочу подать всю семью совместно", next: "lead_gate", scoring: { risk: 0, complexity: 2 } },
+            { id: "family_later", label: "Семья уже в Польше, но подам их позже", next: "lead_gate", scoring: { risk: 0, complexity: 1 } },
+            { id: "eu_citizen", label: "Моя семья — граждане Польши / ЕС", next: "lead_gate", scoring: { risk: 0, complexity: 1 } }
+        ]
     }
 ];
 
