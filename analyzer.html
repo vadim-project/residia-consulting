@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оценка шансов на ВНЖ | RESIDIA Consulting</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" type="image/svg+xml" href="img/residia66.svg">
+</head>
+<body class="analyzer-body">
+    
+    <header class="site-header">
+        <div class="container header-inner" style="grid-template-columns: 1fr auto;">
+            <div class="logo">
+                <a href="index.html" class="logo-link">
+                    <img src="img/residia.svg" alt="RESIDIA Logo" class="brand-logo">
+                </a>
+            </div>
+            
+            <button id="theme-toggle" class="theme-switch" aria-label="Переключить тему">
+                <span class="theme-switch-slider"></span>
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="analyzer-main">
+        <div class="container container-small">
+            
+            <div id="analyzer-progress" class="analyzer-progress hidden">
+                <div class="progress-track">
+                    <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="progress-text"><span id="step-current">1</span> / <span id="step-total">6</span></div>
+            </div>
+
+            <div id="step-onboarding" class="analyzer-step active text-center">
+                
+                <div class="hero-badge" style="margin-bottom: 1.5rem;">Migration Analyzer 1.0</div>
+                
+                <h1 class="hero-title-large" style="font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 1rem;">
+                    Анализ шансов на ВНЖ<span class="text-accent">.</span>
+                </h1>
+                
+                <p class="hero-subtitle-large" style="margin-bottom: 2.5rem; font-size: 1.1rem;">
+                    Ответьте на несколько вопросов, чтобы получить предварительную оценку Вашей ситуации, расчет сроков и анализ рисков в Варшаве.
+                </p>
+                
+                <div class="trust-indicators">
+                    <div class="trust-item">
+                        <span class="dot-accent" style="display:inline-block; width:8px; height:8px; margin-right:8px;"></span>
+                        Займет 1 минуту
+                    </div>
+                    <div class="trust-item">
+                        <span class="dot-muted"></span>
+                        Строго конфиденциально
+                    </div>
+                </div>
+
+                <div class="analyzer-actions">
+                    <button id="btn-start-analyzer" class="btn-solid" style="width: 100%; max-width: 320px;">
+                        Начать анализ
+                    </button>
+                </div>
+                
+            </div>
+            
+            <div id="question-container" class="analyzer-step hidden">
+                </div>
+
+        </div>
+    </main>
+
+    <script src="js/theme.js"></script> 
+    <script src="js/analyzer.js"></script>
+</body>
+</html>

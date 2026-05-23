@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    
     /*(Dark/Light Mode)*/
     const themeToggleBtn = document.getElementById('theme-toggle');
 const htmlElement = document.documentElement;
@@ -21,7 +20,7 @@ if (themeToggleBtn) {
     /*Контактная форма (AJAX + Validation)*/
     const contactForm = document.getElementById('contact-form');
 
-    if (contactForm) {
+    if (contactForm) {  
         const cfSuccess = document.getElementById('cf-success');
         const submitBtn = contactForm.querySelector('.btn-contact-submit');
         const phoneRegex = /^\+48\d{9}$/;
@@ -87,7 +86,7 @@ if (themeToggleBtn) {
                     throw new Error();
                 }
             } catch (err) {
-                alert('Ошибка отправки. Пожалуйста, напишите нам в Telegram @residia');
+                alert('Ошибка отправки. Пожалуйста, напишите нам в Telegram @residia_consulting');
                 submitBtn.classList.remove('is-loading');
                 submitBtn.disabled = false;
             }
