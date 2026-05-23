@@ -8,14 +8,26 @@ const questionsFlow = [
         options: [
             { id: "karta_pobytu", label: "Получение карты побыту", next: "current_status", scoring: { risk: 0, complexity: 1 } },
             { id: "stay_extension", label: "Продление пребывания", next: "current_status", scoring: { risk: 1, complexity: 1 } },
-            { id: "doc_problems", label: "Проблемы с документами", next: "doc_type", scoring: { risk: 2, complexity: 2 } },
-            { id: "pesel_ukr", label: "PESEL UKR / статус UKR", next: "ukr_status", scoring: { risk: 0, complexity: 1 } },
-            { id: "employer_change", label: "Смена работодателя", next: "employer_status", scoring: { risk: 1, complexity: 2 } },
-            { id: "after_refusal", label: "После отказа / сложная ситуация", next: "refusal_details", scoring: { risk: 3, complexity: 3 } },
+            { id: "doc_problems", label: "Проблемы с документами", next: "current_status", scoring: { risk: 2, complexity: 2 } },
+            { id: "pesel_ukr", label: "PESEL UKR / статус UKR", next: "current_status", scoring: { risk: 0, complexity: 1 } },
+            { id: "employer_change", label: "Смена работодателя", next: "current_status", scoring: { risk: 1, complexity: 2 } },
+            { id: "after_refusal", label: "После отказа / сложная ситуация", next: "current_status", scoring: { risk: 3, complexity: 3 } },
             { id: "not_sure", label: "Пока не уверен(а)", next: "current_status", scoring: { risk: 0, complexity: 1 } }
         ]
+    },
+    {
+        id: "current_status",
+        question: "Какое у вас сейчас текущее основание для пребывания в Польше?",
+        options: [
+            { id: "visa_d", label: "Рабочая или иная виза (D)", next: "days_left", scoring: { risk: 0, complexity: 1 } },
+            { id: "bezwiz", label: "Безвизовый режим (биометрия)", next: "days_left", scoring: { risk: 1, complexity: 1 } },
+            { id: "pesel_ukr", label: "Статус UKR (PESEL UKR)", next: "ukr_zus_status", scoring: { risk: 0, complexity: 1 } },
+            { id: "karta_pobytu_active", label: "Действующая Карта Побыту", next: "karta_expiry", scoring: { risk: 0, complexity: 1 } },
+            { id: "stamp", label: "Печать в паспорте (ожидание карты)", next: "stamp_status", scoring: { risk: 1, complexity: 2 } },
+            { id: "student", label: "Студенческий статус (без визы/карты)", next: "days_left", scoring: { risk: 0, complexity: 1 } },
+            { id: "expired", label: "Документы просрочены / нет оснований", next: "overdue_details", scoring: { risk: 3, complexity: 3 } }
+        ]
     }
-    // Последующие шаги (current_status, ukr_status и т.д.) будут добавляться сюда динамически
 ];
 
 // 2. Менеджер состояния (State Machine)
