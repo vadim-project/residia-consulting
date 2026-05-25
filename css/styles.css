@@ -1885,3 +1885,203 @@ a.contact-item:hover .contact-value {
     color: var(--accent-color);
     transform: translateX(4px);
 }
+
+/* Анимация экрана симуляции расчетов */
+.analyzer-loading-screen {
+    padding: 3rem 1rem;
+}
+
+.analyzer-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    margin: 0 auto 2rem;
+    animation: spin 1s linear infinite;
+}
+
+.loading-title {
+    font-size: 1.25rem;
+    margin-bottom: 2rem;
+    color: var(--text-color);
+}
+
+.loading-steps {
+    list-style: none;
+    padding: 0;
+    max-width: 340px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.loading-step-item {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    opacity: 0.3;
+    transition: opacity 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+.loading-step-item.active {
+    opacity: 1;
+}
+
+.loading-step-item.done::before {
+    content: "✓";
+    color: var(--accent-color);
+    margin-right: 8px;
+    font-weight: bold;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Стили для экрана результатов Анализатора */
+
+.result-card {
+    background-color: var(--card-pure-white);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.result-card.accent-border {
+    border-left: 3px solid var(--accent-color);
+}
+
+.result-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    gap: 1rem;
+}
+
+.result-card-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.result-card-text {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-color);
+    margin: 0;
+}
+
+/* Хайлайты значений */
+.result-value-highlight, .price-value-highlight {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.price-value-highlight {
+    color: var(--accent-color);
+}
+
+/* Цветовые статусы рисков */
+.risk-badge {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.25rem 0.6rem;
+    border-radius: 2px;
+    letter-spacing: 0.02em;
+}
+
+.risk-low {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+}
+
+.risk-medium {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+}
+
+.risk-high {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+}
+
+/* Корректировка группы кнопок под мобильные */
+@media (max-width: 480px) {
+    .result-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
+    .risk-badge, .result-value-highlight, .price-value-highlight {
+        align-self: flex-start;
+    }
+}
+
+/* Стили для комбинированной формы шага 2 */
+.analyzer-mixed-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+}
+
+.an-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.an-input-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.an-input-group input, 
+.analyzer-select {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-pure-white);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 1rem;
+    font-family: var(--font-main);
+    transition: border-color 0.2s ease;
+}
+
+.an-input-group input:focus, 
+.analyzer-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+/* Стилизация выпадающего списка под минимализм */
+.analyzer-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23575F6C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1.2em;
+    padding-right: 2.5rem;
+    cursor: pointer;
+}
+
+.error-msg {
+    color: #EF4444;
+    font-size: 0.8rem;
+    display: none;
+    margin-top: 0.2rem;
+}
