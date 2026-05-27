@@ -85,26 +85,24 @@ const FLOW = {
 
     // ── ВЕТКА: УСКОРЕНИЕ ДЕЛА (PONAGLENIE) ─────────────────
     
-    urzad_location: {
+   urzad_location: {
         question: "В какой воеводский ужонд подано ваше дело?",
         type: "options",
         options: [
-            { id: "urzad_mazowiecki", label: "🏢 Мазовецкий (Варшава)", next: "waiting_time", scoring: { risk: +2 } },
-            { id: "urzad_dolnoslaski", label: "Вроцлав (Нижнесилезский)", next: "waiting_time", scoring: { risk: +1 } },
-            { id: "urzad_other", label: "Другой ужонд", next: "waiting_time", scoring: {} }
+            { id: "urzad_mazowiecki", label: "🏢 Мазовецкий (Варшава)", next: "waiting_time_input", scoring: {}, expected_wait: 12 },
+            { id: "urzad_dolnoslaski", label: "🌉 Нижнесилезский (Вроцлав)", next: "waiting_time_input", scoring: { risk: +1 }, expected_wait: 16 },
+            { id: "urzad_malopolski", label: "🐉 Малопольский (Краков)", next: "waiting_time_input", scoring: {}, expected_wait: 5 },
+            { id: "urzad_opolski", label: "🏰 Опольский (самые долгие сроки)", next: "waiting_time_input", scoring: { risk: +2 }, expected_wait: 19 },
+            { id: "urzad_other", label: "🌍 Другой ужонд (в среднем)", next: "waiting_time_input", scoring: {}, expected_wait: 10 }
         ]
     },
 
-    waiting_time: {
-        question: "Сколько месяцев прошло с момента подачи?",
-        subtitle: "По закону ужонд обязан рассмотреть дело за 60 дней, но на практике сроки сильно затягиваются.",
-        type: "options",
-        options: [
-            { id: "wait_less_3m", label: "Менее 3 месяцев (надо подождать)", next: "fingerprints_status", scoring: { overall: -5, stabilityScore: -10 } },
-            { id: "wait_3_6m", label: "От 3 до 6 месяцев", next: "fingerprints_status", scoring: { overall: +5 } },
-            { id: "wait_6_12m", label: "От 6 до 12 месяцев", next: "fingerprints_status", scoring: { overall: +10 } },
-            { id: "wait_more_12m", label: "Более года (пора писать жалобу)", next: "fingerprints_status", scoring: { overall: +15, risk: +3 } }
-        ]
+    waiting_time_input: {
+        question: "Сколько полных месяцев прошло с момента подачи заявления?",
+        subtitle: "Закон отводит 60 дней на выдачу решения, но реальная статистика другая. Введите число месяцев:",
+        type: "input_number",
+        placeholder: "Например: 8",
+        next: "fingerprints_status" 
     },
 
     fingerprints_status: {
@@ -523,6 +521,10 @@ function renderStep(stepId) {
         } else if (step.type === 'ai_result') {
             container.innerHTML = buildLoadingScreen();
             runAIAnalysis();
+        } else if (step.type === 'input_number') {
+            // Рендерим шаг с полем ввода
+            container.innerHTML = buildInputStep(step, stepId);
+            bindInputButton(stepId);
         } else {
             container.innerHTML = buildOptionsStep(step, stepId);
             bindOptionButtons(stepId);
@@ -589,6 +591,88 @@ function bindOptionButtons(stepId) {
     }
 }
 
+function buildInputStep(step, stepId) {
+    return `
+        <h2 class="analyzer-question-title">${step.question}</h2>
+        ${step.subtitle ? `<p class="analyzer-question-subtitle">${step.subtitle}</p>` : ''}
+        
+        <div class="an-input-group" style="margin-bottom: 2rem; max-width: 250px; margin-left: auto; margin-right: auto;">
+            <input type="number" id="an-num-input" placeholder="${step.placeholder}" min="0" max="60" 
+                   style="font-size: 1.5rem; padding: 1rem; text-align: center; font-weight: 600;">
+        </div>
+        
+        <div id="violation-alert" class="rf-alert hidden" style="text-align: left; margin-bottom: 2rem; font-size: 0.95rem;"></div>
+        
+        <button class="btn-solid" id="btn-next-step" style="width: 100%; max-width: 300px; margin: 0 auto; display: block;">Рассчитать сроки →</button>
+        ${AnalyzerState.history.length > 1 ? `<button class="btn-back" id="btn-back" style="display:block; margin: 1.5rem auto 0;">← Назад</button>` : ''}
+    `;
+}
+
+function bindInputButton(stepId) {
+    const step = FLOW[stepId];
+    const btnNext = document.getElementById('btn-next-step');
+    const input = document.getElementById('an-num-input');
+    const alertBox = document.getElementById('violation-alert');
+
+    btnNext.addEventListener('click', () => {
+        const val = parseInt(input.value);
+        if (isNaN(val) || val < 0) {
+            input.style.borderColor = '#ef4444';
+            return;
+        }
+        
+        input.style.borderColor = 'var(--border-color)';
+        let warningText = "";
+        
+        // Математика сроков ожидания
+        if (stepId === 'waiting_time_input') {
+            const urzadId = AnalyzerState.answers['urzad_location']?.value;
+            const urzadOpt = FLOW['urzad_location'].options.find(o => o.id === urzadId);
+            const expectedWait = urzadOpt ? urzadOpt.expected_wait : 10;
+            
+            if (val >= expectedWait) {
+                // Жесткое нарушение сроков
+                AnalyzerState.redFlags.push(`Сроки нарушены: ожидание ${val} мес. (среднее ${expectedWait} мес.)`);
+                AnalyzerState.applyScoring({ risk: +4, stabilityScore: -10 });
+                
+                alertBox.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+                alertBox.style.color = '#ef4444';
+                alertBox.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                warningText = `⚠️ <strong>Обнаружено нарушение сроков!</strong><br><br>Среднее время ожидания в вашем ужонде — ${expectedWait} мес. Вы ждете уже ${val} мес. Вам необходимо срочно подавать официальное Ponaglenie (жалобу на бездействие).`;
+            } else {
+                // В пределах нормы ужонда
+                const left = expectedWait - val;
+                alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+                alertBox.style.color = 'var(--text-color)';
+                alertBox.style.borderColor = 'var(--accent-color)';
+                warningText = `ℹ️ <strong>В пределах нормы (для 2026 года).</strong><br><br>Среднее время ожидания в выбранном ужонде — ${expectedWait} мес. Примерная дата вашей децизии: через <strong>~${left} мес.</strong>`;
+            }
+        }
+        
+        // Записываем ответ в историю для финального отчета
+        AnalyzerState.answers[stepId] = { value: val, label: `${val} месяцев` };
+        
+        // Показываем вердикт на 4 секунды, затем переводим на следующий шаг
+        alertBox.innerHTML = warningText;
+        alertBox.classList.remove('hidden');
+        btnNext.style.display = 'none'; // Прячем кнопку, чтобы клиент прочитал текст
+        input.disabled = true; // Блокируем ввод
+        
+        setTimeout(() => {
+            renderStep(step.next);
+        }, 4000);
+    });
+
+    // Обработка кнопки "Назад"
+    const backBtn = document.getElementById('btn-back');
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            AnalyzerState.history.pop(); 
+            const prev = AnalyzerState.history.pop(); 
+            if (prev) renderStep(prev);
+        });
+    }
+}
 // ─── 5. LEAD GATE ──────────────────────────────────────────
 
 function buildLeadGate() {
@@ -962,31 +1046,28 @@ function handleShare(method, basePrice, discountPrice, url) {
 function activateDiscount(basePrice, discountPrice) {
     const priceNumbers = document.getElementById('price-numbers');
     const shareStatus = document.getElementById('share-status');
-    const shareBlock = document.getElementById('share-block');
+    const shareBtn = document.getElementById('btn-dash-share');
 
+    // Защита от двойного клика
     if (!priceNumbers || priceNumbers.dataset.discounted === 'true') return;
     priceNumbers.dataset.discounted = 'true';
 
-    // Animate price strikethrough + new price
+    // Зачеркиваем старую цену и пишем новую зеленую (через inline-стили для надежности)
     priceNumbers.innerHTML = `
-        <span class="price-old" id="price-old">${basePrice} PLN</span>
-        <span class="price-new" id="price-new">${discountPrice} PLN</span>
+        <span style="text-decoration: line-through; color: var(--text-muted); font-size: 1.2rem; margin-right: 8px;">${basePrice}</span>
+        <span style="color: var(--accent-color);">${discountPrice} PLN</span>
     `;
 
+    // Выводим сообщение о промокоде
     if (shareStatus) {
-        shareStatus.textContent = '✓ Скидка применена! Укажите промокод SHARE10 при обращении.';
+        shareStatus.innerHTML = '✓ Скидка 10% успешно применена! Промокод: <strong>SHARE10</strong>';
         shareStatus.style.color = 'var(--accent-color)';
     }
-
-    if (shareBlock) {
-        shareBlock.classList.add('share-done');
+    
+    // Прячем кнопку шеринга, раз скидка уже получена
+    if (shareBtn) {
+        shareBtn.style.display = 'none';
     }
-
-    // Trigger animation
-    setTimeout(() => {
-        document.getElementById('price-old')?.classList.add('strikethrough-animate');
-        document.getElementById('price-new')?.classList.add('price-new-animate');
-    }, 50);
 }
 
 function renderFinalResults(analysis, score) {
@@ -1001,172 +1082,160 @@ function renderFinalResults(analysis, score) {
     const scoreClass = getScoreClass(score);
     const redFlags = AnalyzerState.redFlags;
     const basePrice = calcPrice(score, redFlags.length);
-    const discountPrice = Math.round(basePrice * 0.9 / 10) * 10;
+    const isSpeedupPath = AnalyzerState.answers['main_goal']?.value === 'goal_speedup';
 
-    // Fallback if AI failed
-    const a = analysis || {
+    // Фолбеки (оставил твои тексты, только сжал)
+    const fallbackDefault = {
         headline: "Анализ завершён — требуется консультация специалиста",
-        overall_verdict: "Ваш кейс содержит несколько параметров, требующих профессиональной оценки. Рекомендуем личную консультацию для формирования правильной стратегии подачи.",
-        main_basis: "Определяется на основании углублённого анализа документов.",
-        alternative_bases: ["Уточняется на консультации"],
-        strengths: ["Вы уже инициировали анализ своей ситуации", "Понимание рисков позволяет их устранить"],
-        critical_issues: redFlags.length > 0 ? redFlags.slice(0, 2) : ["Недостаточно данных для автоматического анализа"],
-        urgent_actions: ["Записаться на консультацию в RESIDIA", "Собрать базовый пакет документов", "Проверить статус ZUS и US"],
+        overall_verdict: "Кейс требует профессиональной оценки для выбора стратегии.",
+        main_basis: "Определяется на консультации.",
+        strengths: ["Риски выявлены", "Инициатива проявлена"],
+        critical_issues: redFlags.length > 0 ? redFlags.slice(0, 2) : ["Необходим анализ бумаг"],
+        urgent_actions: ["Записаться на консультацию", "Проверить ZUS"],
         wezwanie_probability: score < 60 ? "Высокая" : score < 80 ? "Средняя" : "Низкая",
         refusal_probability: score < 50 ? "Высокая" : score < 70 ? "Средняя" : "Низкая",
-        timeline: "6–12 месяцев (Варшава, 2026)",
-        doc_checklist: ["Заграничный паспорт + копии всех страниц", "Трудовой договор / основание пребывания", "Справка о доходах (PIT или zaświadczenie)", "Подтверждение проживания (meldunek / umowa najmu)", "4 фото на документы"],
-        closing_advice: "Запишитесь на консультацию — даже в сложных случаях правильная стратегия кардинально меняет исход дела."
+        timeline: "6–12 мес.",
+        doc_checklist: ["Паспорт", "Умова", "PIT", "Мельдунек", "Фото"],
+        closing_advice: "Стратегия кардинально меняет исход дела."
     };
+
+    const fallbackSpeedup = {
+        headline: "Выявлено нарушение сроков (KPA) со стороны Ужонда",
+        overall_verdict: "Дело затянуто. У вас есть право на запуск процедуры Ponaglenie.",
+        main_basis: "Жалоба на бездействие воеводы (Ponaglenie).",
+        strengths: ["Отпечатки сданы", "Сроки KPA (60 дней) истекли"],
+        critical_issues: ["Инспектор затягивает решение", "Справки могут устареть"],
+        urgent_actions: ["Подать Ponaglenie", "Запросить Wgląd", "Обновить ZUS"],
+        wezwanie_probability: "Низкая",
+        refusal_probability: "Низкая",
+        timeline: "1.5 – 3 мес.",
+        doc_checklist: ["Внёсек со штампом", "Все Wezwanie", "Оплата пошлины", "Хронология"],
+        closing_advice: "Дела с жалобами рассматриваются в приоритетном порядке."
+    };
+
+    const a = analysis || (isSpeedupPath ? fallbackSpeedup : fallbackDefault);
 
     container.classList.add('hidden');
     setTimeout(() => {
-        container.innerHTML = `
-            <div class="results-wrapper">
-
-                <div class="results-header">
-                    <div class="hero-badge">Анализ завершён • Migration Analyzer 2.0</div>
-                    <h2 class="results-title">${name}, вот ваш персональный разбор<span class="text-accent">.</span></h2>
-                    <p class="results-headline-quote">"${a.headline}"</p>
+        let htmlTemplate = `
+            <div class="dash-wrapper">
+                
+                <div class="dash-header">
+                    <div class="dash-badge">${isSpeedupPath ? 'Анализ задержки' : 'Анализ шансов'}</div>
+                    <h2 class="dash-title">${name}, ваш экспресс-разбор готов.</h2>
+                    <p class="dash-quote">"${a.headline}"</p>
                 </div>
 
-                <!-- Score Dashboard -->
-                <div class="results-score-dashboard">
-                    <div class="score-main-block score-${scoreClass}">
-                        <div class="score-big-number">${score}</div>
-                        <div class="score-out-of">из 100 баллов</div>
-                        <div class="score-title-label">${getScoreTitle(score)}</div>
+                <div class="dash-metrics-ribbon">
+                    <div class="dm-score dm-${scoreClass}">
+                        <span class="dm-score-val">${score}</span>
+                        <span class="dm-score-lbl">/100</span>
                     </div>
-                    <div class="score-subscores">
-                        ${buildSubScoreBar('Готовность документов', AnalyzerState.score.documentReadiness)}
-                        ${buildSubScoreBar('Стабильность ситуации', AnalyzerState.score.stabilityScore)}
-                        ${buildSubScoreBar('Доверие ужонда', AnalyzerState.score.immigrationTrust)}
-                        ${buildSubScoreBar('Надёжность работодателя', AnalyzerState.score.employerReliability)}
-                        ${buildSubScoreBar('Непрерывность пребывания', AnalyzerState.score.residenceContinuity)}
-                        ${buildSubScoreBar('Качество дохода', AnalyzerState.score.incomeQuality)}
+                    <div class="dm-divider"></div>
+                    <div class="dm-item">
+                        <span class="dm-label">${isSpeedupPath ? 'Риск без рассмотр.' : 'Риск wezwanie'}</span>
+                        <span class="dm-val prob-${getProbClass(a.wezwanie_probability)}">${a.wezwanie_probability}</span>
+                    </div>
+                    <div class="dm-item">
+                        <span class="dm-label">Риск отказа</span>
+                        <span class="dm-val prob-${getProbClass(a.refusal_probability)}">${a.refusal_probability}</span>
+                    </div>
+                    <div class="dm-item">
+                        <span class="dm-label">Сроки</span>
+                        <span class="dm-val text-accent">${a.timeline}</span>
                     </div>
                 </div>
 
-                <!-- Verdict -->
-                <div class="result-card">
-                    <div class="result-card-header">
-                        <span class="result-card-label">📋 Общая оценка</span>
-                    </div>
-                    <p class="result-card-text">${a.overall_verdict}</p>
-                </div>
-
-                <!-- Main Basis -->
-                <div class="result-card accent-border">
-                    <div class="result-card-header">
-                        <span class="result-card-label">🎯 Рекомендуемое основание</span>
-                    </div>
-                    <p class="result-card-text">${a.main_basis}</p>
-                    ${a.alternative_bases && a.alternative_bases.length > 0 ? `
-                        <div class="alt-bases">
-                            <span class="alt-bases-label">Альтернативы:</span>
-                            ${a.alternative_bases.map(b => `<span class="alt-basis-tag">${b}</span>`).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-
-                <!-- Strengths + Issues -->
-                <div class="results-two-col">
-                    <div class="result-card result-card-green">
-                        <div class="result-card-header">
-                            <span class="result-card-label">✅ Сильные стороны</span>
-                        </div>
-                        <ul class="result-list">
-                            ${a.strengths.map(s => `<li>${s}</li>`).join('')}
+                <div class="dash-grid">
+                    <div class="dash-card">
+                        <h4 class="dc-title">📋 Резюме и стратегия</h4>
+                        <p class="dc-text"><strong>Вердикт:</strong> ${a.overall_verdict}</p>
+                        <p class="dc-text"><strong>Цель:</strong> ${a.main_basis}</p>
+                        
+                        <h4 class="dc-title" style="margin-top: 1rem;">⚡ Первоочередные шаги</h4>
+                        <ul class="dc-list">
+                            ${a.urgent_actions.map(action => `<li>${action}</li>`).join('')}
                         </ul>
                     </div>
-                    <div class="result-card result-card-red">
-                        <div class="result-card-header">
-                            <span class="result-card-label">⚠️ Критические проблемы</span>
+
+                    <div class="dash-card">
+                        <div class="dc-split">
+                            <div class="dc-half">
+                                <h4 class="dc-title green">✅ Плюсы</h4>
+                                <ul class="dc-list-small">
+                                    ${a.strengths.map(s => `<li>${s}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div class="dc-half">
+                                <h4 class="dc-title red">⚠️ Риски</h4>
+                                <ul class="dc-list-small">
+                                    ${a.critical_issues.map(i => `<li>${i}</li>`).join('')}
+                                </ul>
+                            </div>
                         </div>
-                        <ul class="result-list">
-                            ${a.critical_issues.map(i => `<li>${i}</li>`).join('')}
-                        </ul>
+                        ${redFlags.length > 0 ? `<div class="dc-flags">🚩 <strong>Красные флаги:</strong> ${redFlags.join('; ')}</div>` : ''}
+                        
+                        <h4 class="dc-title" style="margin-top: 1rem;">📁 Документы (чек-лист)</h4>
+                        <div class="dc-tags">
+                            ${a.doc_checklist.map(d => `<span class="dc-tag">${d}</span>`).join('')}
+                        </div>
                     </div>
                 </div>
 
-                <!-- Red Flags -->
-                ${redFlags.length > 0 ? `
-                <div class="result-card result-card-redflag">
-                    <div class="result-card-header">
-                        <span class="result-card-label">🚩 Выявленные красные флаги (${redFlags.length})</span>
+                <div class="dash-footer">
+                    <div class="df-price-col">
+                        <span class="df-price-lbl">Ведение дела:</span>
+                        <div class="df-price-val" id="price-numbers">
+                            <span class="price-current" id="price-current">${basePrice} PLN</span>
+                        </div>
+                        <span class="df-price-sub">Оплата после подачи</span>
                     </div>
-                    <ul class="result-list">
-                        ${redFlags.map(f => `<li>${f}</li>`).join('')}
-                    </ul>
-                </div>` : ''}
-
-                <!-- Urgent Actions -->
-                <div class="result-card">
-                    <div class="result-card-header">
-                        <span class="result-card-label">⚡ Что нужно сделать срочно</span>
-                    </div>
-                    <ol class="result-list result-list-ordered">
-                        ${a.urgent_actions.map(action => `<li>${action}</li>`).join('')}
-                    </ol>
-                </div>
-
-                <!-- Probabilities & Timeline -->
-                <div class="results-three-col">
-                    <div class="prob-card">
-                        <div class="prob-label">Вероятность wezwanie</div>
-                        <div class="prob-value prob-${getProbClass(a.wezwanie_probability)}">${a.wezwanie_probability}</div>
-                    </div>
-                    <div class="prob-card">
-                        <div class="prob-label">Вероятность отказа</div>
-                        <div class="prob-value prob-${getProbClass(a.refusal_probability)}">${a.refusal_probability}</div>
-                    </div>
-                    <div class="prob-card">
-                        <div class="prob-label">Срок рассмотрения</div>
-                        <div class="prob-value prob-neutral">${a.timeline}</div>
-                    </div>
-                </div>
-
-                <!-- Doc Checklist -->
-                <div class="result-card">
-                    <div class="result-card-header">
-                        <span class="result-card-label">📁 Базовый чек-лист документов</span>
-                    </div>
-                    <ul class="result-checklist">
-                        ${a.doc_checklist.map(d => `<li><span class="check-box">☐</span>${d}</li>`).join('')}
-                    </ul>
-                </div>
-
-                <!-- Closing advice -->
-                <div class="result-card accent-border-green">
-                    <p class="result-card-text" style="font-style: italic;">${a.closing_advice}</p>
-                </div>
-
-                <!-- ── PRICE BLOCK ── -->
-                ${buildPriceBlock(basePrice)}
-
-                <!-- ── MAIN CTA ── -->
-                <div class="results-cta-block text-center">
-                    <h3 class="cta-title">Получите полный развёрнутый анализ и план действий</h3>
-                    <p class="cta-subtitle">Этот экспресс-отчёт — только верхушка айсберга. Наш юрист подготовит развёрнутый персональный анализ с пошаговым планом, точным списком документов и стратегией подачи — и пришлёт его вам на почту или в Telegram.</p>
-                    <div class="cta-buttons-group">
-                        <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid cta-btn-primary">
-                            Получить развёрнутый анализ в Telegram →
+                    <div class="df-cta-col">
+                        <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">
+                            ${isSpeedupPath ? 'Ускорить в Telegram →' : 'Узнать детали в Telegram →'}
                         </a>
-                        <a href="mailto:info@residia.pl?subject=Запрос%20развернутого%20анализа%20кейса&body=Здравствуйте!%20Прошёл(а)%20анализатор%20на%20сайте.%20Прошу%20прислать%20развёрнутый%20анализ%20моего%20кейса." class="btn-outline">
-                            Получить на почту
-                        </a>
+                        <button class="btn-outline df-btn-share" id="btn-dash-share">
+                            🔗 Поделиться (-10%)
+                        </button>
                     </div>
-                    <p class="cta-disclaimer">RESIDIA Consulting · Варшава · Работаем с 2021 года</p>
                 </div>
-
-                <!-- ── SHARE BLOCK ── -->
-                ${buildShareBlock(basePrice)}
+                <p class="share-already" id="share-status" style="text-align:center; margin-top:0.5rem;"></p>
 
             </div>
         `;
+        
+        container.innerHTML = htmlTemplate;
         container.classList.remove('hidden');
         container.classList.add('active');
         window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // === ВЕШАЕМ НАТИВНЫЙ ШЕРИНГ СРАЗУ ПОСЛЕ ОТРИСОВКИ ===
+        const btnShare = document.getElementById('btn-dash-share');
+        if (btnShare) {
+            btnShare.addEventListener('click', async () => {
+                const shareData = {
+                    title: 'Оценка шансов на ВНЖ - RESIDIA',
+                    text: 'Проверил(а) свои шансы на ВНЖ в Польше через анализатор RESIDIA. Рекомендую пройти! 🇵🇱',
+                    url: window.location.href.split('?')[0]
+                };
+                
+                try {
+                    // Если браузер поддерживает системное меню шеринга (мобилки/Mac)
+                    if (navigator.share) {
+                        await navigator.share(shareData);
+                    } else {
+                        // Фолбэк для старых ПК: копируем в буфер обмена
+                        await navigator.clipboard.writeText(shareData.url);
+                    }
+                    // Включаем скидку, если человек поделился
+                    activateDiscount(basePrice, Math.round(basePrice * 0.9 / 10) * 10);
+                } catch (err) {
+                    console.log('Пользователь отменил шеринг', err);
+                }
+            });
+        }
+        // ====================================================
+
     }, 300);
 }
 

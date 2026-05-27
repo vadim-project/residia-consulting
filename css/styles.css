@@ -2329,3 +2329,59 @@ a.contact-item:hover .contact-value {
         transform: translateX(0);
     }
 }
+
+/* ── КОМПАКТНЫЙ ДАШБОРД (ФИНАЛ) ── */
+        .dash-wrapper { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+        
+        .dash-header { text-align: left; }
+        .dash-badge { display: inline-block; font-size: 0.7rem; font-weight: 700; background: rgba(16,185,129,0.1); color: var(--accent-color); padding: 0.25rem 0.75rem; border-radius: 2rem; margin-bottom: 0.5rem; text-transform: uppercase; }
+        .dash-title { font-size: clamp(1.4rem, 3vw, 1.8rem); margin-bottom: 0.3rem; }
+        .dash-quote { font-size: 0.9rem; color: var(--text-muted); font-style: italic; border-left: 2px solid var(--accent-color); padding-left: 0.75rem; }
+
+        .dash-metrics-ribbon { display: flex; align-items: center; justify-content: space-between; background: var(--card-pure-white); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.75rem 1.25rem; flex-wrap: wrap; gap: 1rem; }
+        .dm-score { display: flex; align-items: baseline; gap: 2px; }
+        .dm-score-val { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+        .dm-score-lbl { font-size: 0.8rem; color: var(--text-muted); }
+        .dm-high { color: var(--accent-color); } .dm-medium { color: #f59e0b; } .dm-low { color: #ef4444; }
+        .dm-divider { width: 1px; height: 30px; background: var(--border-color); }
+        .dm-item { display: flex; flex-direction: column; }
+        .dm-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .dm-val { font-size: 1.1rem; font-weight: 700; }
+        
+        .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .dash-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 1.25rem; }
+        .dc-title { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3rem; }
+        .dc-title.green { color: var(--accent-color); } .dc-title.red { color: #ef4444; }
+        .dc-text { font-size: 0.9rem; color: var(--text-color); margin-bottom: 0.5rem; line-height: 1.4; }
+        
+        .dc-list, .dc-list-small { padding-left: 1.2rem; margin: 0; }
+        .dc-list li { font-size: 0.9rem; margin-bottom: 0.4rem; color: var(--text-color); }
+        .dc-list-small li { font-size: 0.85rem; margin-bottom: 0.3rem; color: var(--text-muted); }
+        
+        .dc-split { display: flex; gap: 1rem; }
+        .dc-half { flex: 1; }
+        .dc-flags { margin-top: 0.75rem; background: rgba(239,68,68,0.1); border: 1px dashed #ef4444; color: #ef4444; padding: 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+        
+        /* Чек-лист в виде тегов */
+        .dc-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .dc-tag { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 4px; white-space: nowrap; }
+
+        /* Подвал */
+        .dash-footer { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); border: 2px solid var(--text-color); border-radius: 6px; padding: 1rem 1.5rem; gap: 1rem; flex-wrap: wrap; }
+        .df-price-col { display: flex; flex-direction: column; }
+        .df-price-lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+        .df-price-val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; color: var(--text-color); }
+        .df-price-sub { font-size: 0.75rem; color: var(--accent-color); font-weight: 600; }
+        
+        .df-cta-col { display: flex; gap: 0.5rem; flex: 1; justify-content: flex-end; }
+        .df-btn, .df-btn-share { padding: 0.75rem 1rem; font-size: 0.9rem; white-space: nowrap; text-align: center; }
+        .df-btn-share { background: transparent; color: var(--text-color); }
+
+        @media (max-width: 768px) {
+            .dash-grid { grid-template-columns: 1fr; }
+            .dash-metrics-ribbon { justify-content: flex-start; }
+            .dm-divider { display: none; }
+            .dash-footer { flex-direction: column; align-items: stretch; text-align: center; }
+            .df-cta-col { flex-direction: column; }
+            .dc-split { flex-direction: column; }
+        }
