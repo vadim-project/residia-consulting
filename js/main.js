@@ -20,12 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const cfSuccess = document.getElementById('cf-success');
         const submitBtn = contactForm.querySelector('.btn-contact-submit');
         const phoneRegex = /^\+48\d{9}$/;
+        
+        // ВАЖНО: Убедись, что тут стоит твой актуальный вебхук из Make!
+        const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/w1bmm599qgefp88bcyx56aw9nx49t28o';
 
         const fields = {
             name: document.getElementById('cf-name'),
             phone: document.getElementById('cf-phone'),
             telegram: document.getElementById('cf-telegram'),
             service: document.getElementById('cf-service'),
+            message: document.getElementById('cf-message')
         };
 
         Object.values(fields).forEach(input => {
@@ -48,14 +52,26 @@ document.addEventListener('DOMContentLoaded', () => {
         contactForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!validate()) return;
+            
             submitBtn.classList.add('is-loading');
             submitBtn.disabled = true;
 
+            // Формируем JSON пакет для Make
+            const payload = {
+                name: fields.name.value.trim(),
+                phone: fields.phone.value.trim(),
+                telegram: fields.telegram.value.trim(),
+                service: fields.service.value,
+                comment: fields.message.value.trim(), // Отправляем сообщение как "comment" для унификации с модалкой
+                source: 'main_page_form', // Помечаем, откуда пришел лид
+                submitted_at: new Date().toISOString()
+            };
+
             try {
-                const response = await fetch(contactForm.action, {
+                const response = await fetch(MAKE_WEBHOOK_URL, {
                     method: 'POST',
-                    body: new FormData(contactForm),
-                    headers: { 'Accept': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
 
                 if (response.ok) {

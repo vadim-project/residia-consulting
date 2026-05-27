@@ -1304,6 +1304,54 @@ function activateDiscount(basePrice, discountPrice) {
 function renderFinalResults(analysis, score) {
     const container = document.getElementById('question-container');
     const progressContainer = document.getElementById('analyzer-progress');
+
+    // =========================================================
+    // 🚀 ОТПРАВКА ПОЛНОСТЬЮ УПАКОВАННОГО ЛИДА В MAKE.COM
+    // =========================================================
+    const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/w1bmm599qgefp88bcyx56aw9nx49t28o    ';
+
+    // 1. Формируем красивый лог из всех ответов пользователя
+    let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов\n`;
+    answersLog += `-----------------------------------\n\n`;
+    
+    // Перебираем историю шагов (предполагается, что она хранится в AnalyzerState.history)
+    if (AnalyzerState.history && AnalyzerState.history.length > 0) {
+        AnalyzerState.history.forEach((step, index) => {
+            // Исключаем стартовый экран и шаг сбора контактов
+            if (step.type !== 'onboarding' && step.type !== 'lead_gate' && step.question) {
+                // Если ответ был текстом или объектом, вытягиваем его
+                let answerText = step.answer || 'Не ответил';
+                if (typeof step.answer === 'object' && step.answer.text) {
+                    answerText = step.answer.text;
+                }
+                
+                answersLog += `❓ Вопрос ${index}: ${step.question}\n`;
+                answersLog += `👉 Ответ: ${answerText}\n\n`;
+            }
+        });
+    }
+
+    // 2. Упаковываем все данные для вебхука
+    const payload = {
+        name: AnalyzerState.contactInfo.name || 'Без имени',
+        phone: AnalyzerState.contactInfo.phone || 'Без телефона',
+        telegram: AnalyzerState.contactInfo.telegram || '',
+        service: 'Анализатор ВНЖ (AI)', // Жестко задаем услугу
+        source: 'analyzer_quiz',       // Помечаем источник
+        comment: answersLog,           // Всю анкету запихиваем в комментарий!
+        submitted_at: new Date().toISOString()
+    };
+
+    // 3. Отправляем в фоне (без остановки интерфейса)
+    fetch(MAKE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(res => {
+        console.log('✅ Анкета из Анализатора успешно улетела в CRM!');
+    }).catch(err => {
+        console.error('❌ Ошибка отправки аналитики:', err);
+    });
     
     if (progressContainer) {
         const finalTotal = getDynamicTotalSteps();
@@ -1314,6 +1362,8 @@ function renderFinalResults(analysis, score) {
         
         if (stepCurrent) stepCurrent.textContent = finalTotal;
         if (stepTotal) stepTotal.textContent = finalTotal; // <-- Теперь синхронизируем обе!
+
+
     }
 
     const name = AnalyzerState.contactInfo.name || 'Клиент';
