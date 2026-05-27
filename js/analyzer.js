@@ -76,10 +76,112 @@ const FLOW = {
         subtitle: "Выберите наиболее подходящий вариант, чтобы система адаптировала юридические вопросы под ваш кейс.",
         type: "options",
         options: [
-            { id: "goal_work", label: "💼 Планирую подачу на карту побыта по работе", next: "nationality", scoring: {} },
-            { id: "goal_cukr", label: "🇺🇦 Планирую подачу на карту CUKR", next: "ukr_status", scoring: {} },
+            { id: "goal_work", label: "Карта побыта по работе", next: "work_contract_type", scoring: {} },
+            { id: "goal_cukr", label: "🇺🇦 Планирую подачу на карту CUKR", next: "cukr_pesel", scoring: {} },
             { id: "goal_family", label: "👨‍👩‍👧 Планирую подачу на карту побыта по воссоединению семьи", next: "nationality", scoring: {} },
             { id: "goal_speedup", label: "Уже подан, хочу ускорить дело", next: "urzad_location", scoring: { stabilityScore: +10 } },
+        ]
+    },
+
+    cukr_pesel: {
+        question: "Каков статус вашего PESEL UKR на сегодняшний день?",
+        subtitle: "Карта CUKR доступна только лицам, имеющим активный статус временной защиты.",
+        type: "options",
+        options: [
+            { id: "c_pesel_active", label: "🟢 Активен, нарушений и сбоев не было", next: "cukr_exits", scoring: { immigrationTrust: +15, stabilityScore: +10 } },
+            { id: "c_pesel_restored", label: "🟡 Был аннулирован, но я его официально восстановил(а)", next: "cukr_exits", scoring: { risk: +2 } },
+            { id: "c_pesel_lost", label: "🔴 Статус утрачен / база показывает обычный PESEL", next: "cukr_exits", scoring: { overall: -30, risk: +10, redFlag: "Карта CUKR невозможна без активного статуса временной защиты (обязательно наличие отметки UKR)." } }
+        ]
+    },
+
+    cukr_exits: {
+        question: "Выезжали ли вы за пределы Польши на срок более 30 дней за один выезд?",
+        subtitle: "Однократный выезд из Польши более чем на 30 дней автоматически аннулирует статус временной защиты по закону.",
+        type: "options",
+        options: [
+            { id: "c_exits_none", label: "❌ Нет, не выезжал(а) или выезды были короткими (<30 дней)", next: "cukr_income", scoring: { residenceContinuity: +20, overall: +10 } },
+            { id: "c_exits_long", label: "⚠️ Да, был минимум один выезд дольше чем на 30 дней", next: "cukr_income", scoring: { overall: -25, risk: +8, residenceContinuity: -30, redFlag: "Выезд из Польши >30 дней прерывает легальность пребывания для CUKR и требует полного обнуления/восстановления статуса." } }
+        ]
+    },
+
+    cukr_income: {
+        question: "Есть ли у вас официальный источник дохода в Польше на данный момент?",
+        subtitle: "Закон требует ведения стабильной экономической или трудовой деятельности на день подачи заявления.",
+        type: "options",
+        options: [
+            { id: "c_inc_work", label: "💼 Да, официально работаю (Umowa o pracę / Zlecenie)", next: "cukr_zus", scoring: { incomeQuality: +15 } },
+            { id: "c_inc_jdg", label: "🏢 Да, веду бизнес (ИП / JDG / Sp. z o.o.)", next: "cukr_zus", scoring: { incomeQuality: +20 } },
+            { id: "c_inc_none", label: "❌ Нет официального дохода / Работаю неофициально", next: "cukr_zus", scoring: { overall: -20, incomeQuality: -30, risk: +6, redFlag: "Отсутствие официального дохода на момент подачи — прямое основание для отказа в карте CUKR." } }
+        ]
+    },
+
+    cukr_zus: {
+        question: "Своевременно ли отчисляются за вас взносы в ZUS (страхование)?",
+        type: "options",
+        options: [
+            { id: "c_zus_ok", label: "Да, работодатель / бухгалтер всё оплачивает, долгов нет", next: "lead_gate", scoring: { documentReadiness: +20, immigrationTrust: +10 } },
+            { id: "c_zus_no", label: "Взносы не платятся / есть задолженность по налогам", next: "lead_gate", scoring: { overall: -25, risk: +8, redFlag: "Задолженность перед ZUS или налоговой (US) заблокирует одобрение карты CUKR." } },
+            { id: "c_zus_unknown", label: "Не знаю / Не проверял(а) выписку", next: "lead_gate", scoring: { risk: +2 } }
+        ]
+    },
+
+    // ── ВЕТКА: ПОДАЧА ПО РАБОТЕ (KARTA POBYTU PRACA) ─────────────────
+
+    work_contract_type: {
+        question: "По какому типу договора вы работаете?",
+        subtitle: "Тип договора напрямую влияет на стабильность кейса и требования к документам.",
+        type: "options",
+        options: [
+            { id: "w_umowa_prace", label: "💼 Umowa o pracę (Трудовой договор)", next: "work_salary", scoring: { incomeQuality: +20, stabilityScore: +10 } },
+            { id: "w_umowa_zlecenie", label: "📋 Umowa Zlecenie (Договор подряда)", next: "work_salary", scoring: { incomeQuality: +5 } },
+            { id: "w_b2b_jdg", label: "🏢 B2B контракт (своё ИП / JDG)", next: "jdg_path", scoring: { incomeQuality: +10 } }, // Эта кнопка умно перекинет юзера на уже существующую ветку бизнеса
+            { id: "w_agency", label: "🏭 Работаю через агенцию (Agencja Pracy)", next: "work_salary", scoring: { employerReliability: -15, risk: +3, redFlag: "Работа через агенцию требует дополнительных договоров (umowa outsourcingowa), что усложняет проверку ужондом." } },
+            { id: "w_no_contract", label: "❌ Пока нет договора / Ищу работу", next: "work_legal_status", scoring: { overall: -20, incomeQuality: -30, risk: +5, redFlag: "Для подачи по работе необходимо иметь активный договор или официальную promesę." } }
+        ]
+    },
+
+    work_salary: {
+        question: "Какова ваша официальная зарплата брутто в месяц?",
+        subtitle: "С 2026 года минимальная зарплата в Польше составляет 4 666 PLN brutto.",
+        type: "options",
+        options: [
+            { id: "ws_high", label: "Более 7 000 PLN brutto (Высокая)", next: "work_zus", scoring: { incomeQuality: +20, overall: +10 } },
+            { id: "ws_mid", label: "От 4 666 до 7 000 PLN brutto", next: "work_zus", scoring: { incomeQuality: +10 } },
+            { id: "ws_min", label: "Ровно минималка (4 666 PLN)", next: "work_zus", scoring: { incomeQuality: 0 } },
+            { id: "ws_low", label: "Ниже 4 666 PLN / Часть ставки", next: "work_zus", scoring: { incomeQuality: -20, overall: -15, risk: +5, redFlag: "Официальная ЗП ниже минимальной (4666 PLN) — гарантированный отказ, если это единственный источник дохода." } }
+        ]
+    },
+
+    work_zus: {
+        question: "Оплачивает ли работодатель за вас налоги и взносы ZUS?",
+        type: "options",
+        options: [
+            { id: "wz_yes", label: "Да, всё оплачивается официально", next: "work_employer_size", scoring: { immigrationTrust: +15, documentReadiness: +10 } },
+            { id: "wz_student", label: "Я студент до 26 лет (ZUS не платится по закону)", next: "work_employer_size", scoring: { documentReadiness: +10 } },
+            { id: "wz_no", label: "Нет, получаю часть денег «в конверте»", next: "work_employer_size", scoring: { overall: -30, risk: +8, immigrationTrust: -20, redFlag: "КРИТИЧНО: Отсутствие отчислений в ZUS делает невозможным получение карты побыту." } },
+            { id: "wz_unknown", label: "Не уверен(а) / Не проверял(а)", next: "work_employer_size", scoring: { risk: +3, redFlag: "Рекомендуется проверить статус отчислений через платформу PUE ZUS перед подачей." } }
+        ]
+    },
+
+    work_employer_size: {
+        question: "Насколько крупная компания, в которой вы работаете?",
+        subtitle: "Ужонд по-разному проверяет корпорации и мелкий бизнес.",
+        type: "options",
+        options: [
+            { id: "we_big", label: "Крупная компания (более 50 сотрудников)", next: "work_legal_status", scoring: { employerReliability: +20 } },
+            { id: "we_mid", label: "Средний или малый бизнес (есть офис и сайт)", next: "work_legal_status", scoring: { employerReliability: +10 } },
+            { id: "we_micro", label: "Микробизнес (оформлен недавно, 1-2 человека)", next: "work_legal_status", scoring: { employerReliability: -10, risk: +3, redFlag: "Микро-компании часто подвергаются дополнительным проверкам (Wezwanie) на предмет фиктивности." } }
+        ]
+    },
+
+    work_legal_status: {
+        question: "На каком основании вы сейчас находитесь в Польше?",
+        subtitle: "Важно подать документы до истечения легального пребывания.",
+        type: "options",
+        options: [
+            { id: "wls_active", label: "Действующая виза / Безвиз / Старая Карта", next: "lead_gate", scoring: { stabilityScore: +15 } },
+            { id: "wls_stamp", label: "Уже есть штамп в паспорте (жду решения)", next: "lead_gate", scoring: { stabilityScore: +5 } },
+            { id: "wls_illegal", label: "Документы просрочены", next: "lead_gate", scoring: { overall: -30, risk: +10, redFlag: "Подача с просроченными документами требует специальной юридической процедуры (przywrócenie terminu)." } }
         ]
     },
 
@@ -89,11 +191,22 @@ const FLOW = {
         question: "В какой воеводский ужонд подано ваше дело?",
         type: "options",
         options: [
-            { id: "urzad_mazowiecki", label: "🏢 Мазовецкий (Варшава)", next: "waiting_time_input", scoring: {}, expected_wait: 12 },
-            { id: "urzad_dolnoslaski", label: "🌉 Нижнесилезский (Вроцлав)", next: "waiting_time_input", scoring: { risk: +1 }, expected_wait: 16 },
-            { id: "urzad_malopolski", label: "🐉 Малопольский (Краков)", next: "waiting_time_input", scoring: {}, expected_wait: 5 },
-            { id: "urzad_opolski", label: "🏰 Опольский (самые долгие сроки)", next: "waiting_time_input", scoring: { risk: +2 }, expected_wait: 19 },
-            { id: "urzad_other", label: "🌍 Другой ужонд (в среднем)", next: "waiting_time_input", scoring: {}, expected_wait: 10 }
+            { id: "urzad_mazowiecki", label: "Мазовецкое (Варшава)", next: "waiting_time_input", scoring: {}, expected_wait: 12 },
+            { id: "urzad_dolnoslaski", label: "Нижнесилезское (Вроцлав)", next: "waiting_time_input", scoring: { risk: +1 }, expected_wait: 16 },
+            { id: "urzad_wielkopolskie", label: "Великопольское (Познань)", next: "waiting_time_input", scoring: { risk: +1 }, expected_wait: 11 },
+            { id: "urzad_opolskie", label: "Опольское (Ополе)", next: "waiting_time_input", scoring: { risk: +2 }, expected_wait: 19 },
+            { id: "urzad_pomorskie", label: "Поморское (Гданьск)", next: "waiting_time_input", scoring: {}, expected_wait: 10 },
+            { id: "urzad_slaskie", label: "Силезское (Катовице)", next: "waiting_time_input", scoring: {}, expected_wait: 9 },
+            { id: "urzad_malopolskie", label: "Малопольское (Краков)", next: "waiting_time_input", scoring: {}, expected_wait: 5 },
+            { id: "urzad_lodzkie", label: "Лодзинское (Лодзь)", next: "waiting_time_input", scoring: {}, expected_wait: 7 },
+            { id: "urzad_zachodniopomorskie", label: "Западнопоморское (Щецин)", next: "waiting_time_input", scoring: {}, expected_wait: 9 },
+            { id: "urzad_lubelskie", label: "Люблинское (Люблин)", next: "waiting_time_input", scoring: {}, expected_wait: 5 },
+            { id: "urzad_podkarpackie", label: "Подкарпатское (Жешув)", next: "waiting_time_input", scoring: {}, expected_wait: 6 },
+            { id: "urzad_kujawskopomorskie", label: "Куявско-Поморское (Быдгощ / Торунь)", next: "waiting_time_input", scoring: {}, expected_wait: 7 },
+            { id: "urzad_podlaskie", label: "Подляское (Белосток)", next: "waiting_time_input", scoring: {}, expected_wait: 6 },
+            { id: "urzad_lubuskie", label: "Любушское (Гожув / Зелёна-Гура)", next: "waiting_time_input", scoring: {}, expected_wait: 8 },
+            { id: "urzad_warminskomazurskie", label: "Варминско-Мазурское (Ольштын)", next: "waiting_time_input", scoring: {}, expected_wait: 6 },
+            { id: "urzad_swietokrzyskie", label: "Свентокшиское (Кельце)", next: "waiting_time_input", scoring: {}, expected_wait: 4 }
         ]
     },
 
@@ -566,9 +679,9 @@ function bindOptionButtons(stepId) {
 
             // === УМНОЕ ИЗМЕНЕНИЕ ДЛИНЫ КВИЗА ===
             if (optionId === 'goal_speedup') TOTAL_STEPS_ESTIMATE = 6;
-            else if (optionId === 'goal_cukr') TOTAL_STEPS_ESTIMATE = 5;
+            else if (optionId === 'goal_cukr') TOTAL_STEPS_ESTIMATE = 6;
             else if (optionId === 'goal_family') TOTAL_STEPS_ESTIMATE = 6;
-            else if (optionId === 'goal_work') TOTAL_STEPS_ESTIMATE = 12;
+            else if (optionId === 'goal_work') TOTAL_STEPS_ESTIMATE = 7;
             // ===================================
 
             AnalyzerState.addAnswer(stepId, optionId, label, selectedOpt.scoring);
