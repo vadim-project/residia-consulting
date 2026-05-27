@@ -577,15 +577,97 @@ function buildLeadGate() {
     `;
 }
 
+const MAKE_WEBHOOK = 'https://hook.eu1.make.com/toyydkhpex3x7t5huytu2lwv4okfsgx8';
+
+// Builds the richest possible payload for Notion via Make
+function buildWebhookPayload(name, phone, telegram) {
+    const score       = AnalyzerState.getFinalScore();
+    const basePrice   = calcPrice(score, AnalyzerState.redFlags.length);
+    const s           = AnalyzerState.score;
+    const answers     = AnalyzerState.answers;
+
+    // "Type of lead" — главное основание из анкеты
+    const empAnswer  = answers['employment_basis'];
+    const basisMap   = {
+        emp_umowa_pracę: 'Umowa o pracę',
+        emp_zlecenie:    'Umowa zlecenie',
+        emp_blue_card:   'Blue Card',
+        emp_jdg:         'JDG / Бизнес',
+        emp_sp_zoo:      'Sp. z o.o.',
+        emp_student:     'Студент',
+        emp_family:      'Воссоединение семьи',
+        emp_no_income:   'Нет дохода'
+    };
+    const typeOfLead = empAnswer ? (basisMap[empAnswer.value] || empAnswer.label) : 'Не указано';
+
+    // "Rysk" — уровень риска словом
+    const riskLevel = s.risk >= 12 ? 'Критический'
+                    : s.risk >= 7  ? 'Высокий'
+                    : s.risk >= 3  ? 'Средний'
+                    : 'Низкий';
+
+    // Полный список ответов как читаемый текст
+    const answersText = Object.entries(answers)
+        .filter(([k]) => !['client_name', 'client_phone'].includes(k))
+        .map(([k, v]) => `${k}: ${v.label}`)
+        .join('\n');
+
+    return {
+        // ── Notion columns ──────────────────────────────
+        name,
+        phone,
+        telegram:      telegram || '',
+        type_of_lead:  typeOfLead,
+        rysk:          riskLevel,
+        price:         basePrice,
+
+        // ── Extended scoring (Make может маппить в доп. колонки) ──
+        score_overall:              score,
+        score_risk_points:          s.risk,
+        score_document_readiness:   s.documentReadiness,
+        score_stability:            s.stabilityScore,
+        score_immigration_trust:    s.immigrationTrust,
+        score_employer_reliability: s.employerReliability,
+        score_residence_continuity: s.residenceContinuity,
+        score_income_quality:       s.incomeQuality,
+
+        // ── Red flags ──────────────────────────────────
+        red_flags_count: AnalyzerState.redFlags.length,
+        red_flags:       AnalyzerState.redFlags.join(' | ') || 'нет',
+
+        // ── Full answers dump ──────────────────────────
+        answers_full: answersText,
+
+        // ── Meta ──────────────────────────────────────
+        source:     'analyzer.html',
+        submitted_at: new Date().toISOString(),
+        page_url:   window.location.href
+    };
+}
+
+async function sendToWebhook(payload) {
+    try {
+        await fetch(MAKE_WEBHOOK, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        console.log('[Webhook] ✓ Лид отправлен в Make →', payload);
+    } catch (err) {
+        // silent — не блокируем UX при ошибке сети
+        console.warn('[Webhook] ✗ Ошибка отправки:', err);
+    }
+}
+
 function bindLeadGateEvents() {
     const form = document.getElementById('analyzer-lead-form');
     if (!form) return;
     const phoneRegex = /^\+48\d{9}$/;
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('an-name').value.trim();
-        const phone = document.getElementById('an-phone').value.trim();
+        const name     = document.getElementById('an-name').value.trim();
+        const phone    = document.getElementById('an-phone').value.trim();
         const telegram = document.getElementById('an-telegram').value.trim();
         const phoneError = document.getElementById('an-phone-error');
 
@@ -600,8 +682,9 @@ function bindLeadGateEvents() {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Генерируем ваш отчёт…';
 
-        // Send to Formspree or similar — silent, fire & forget
-        console.log('[LEAD]', AnalyzerState.contactInfo, AnalyzerState.answers);
+        // ── Fire webhook (non-blocking) ──
+        const payload = buildWebhookPayload(name, phone, telegram);
+        sendToWebhook(payload); // без await — не задерживаем UX
 
         renderStep('ai_analysis');
     });
