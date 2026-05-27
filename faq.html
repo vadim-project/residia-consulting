@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Часто задаваемые вопросы | RESIDIA Consulting</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" type="image/svg+xml" href="img/residia66.svg">
+    <style>
+        /* ── СТИЛИ ДЛЯ БЛОКА FAQ ── */
+        .faq-page-header {
+            padding: 6rem 0 3rem;
+            text-align: center;
+        }
+        .faq-page-title {
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 1rem;
+        }
+        .faq-page-subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .faq-section {
+            padding-bottom: 6rem;
+        }
+        .faq-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem 2rem;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid var(--border-color);
+        }
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+
+        .faq-question {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: none;
+            border: none;
+            padding: 1.5rem 0;
+            cursor: pointer;
+            text-align: left;
+            color: var(--text-color);
+            font-family: var(--font-main);
+        }
+        .faq-question:hover .faq-text {
+            color: var(--accent-color);
+        }
+
+        .faq-question-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding-right: 1.5rem;
+        }
+
+        .faq-number {
+            font-weight: 700;
+            color: var(--accent-color);
+            font-size: 1.1rem;
+            opacity: 0.8;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .faq-text {
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: color 0.2s ease;
+            line-height: 1.4;
+        }
+
+        .faq-icon {
+            flex-shrink: 0;
+            color: var(--text-muted);
+            transition: transform 0.3s ease, color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .faq-item.active .faq-icon {
+            transform: rotate(180deg);
+            color: var(--accent-color);
+        }
+
+        /* Умная анимация аккордеона через Grid */
+        .faq-answer-wrapper {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.3s ease;
+        }
+        .faq-item.active .faq-answer-wrapper {
+            grid-template-rows: 1fr;
+        }
+        .faq-answer {
+            overflow: hidden;
+        }
+        .faq-answer-inner {
+            padding-bottom: 1.5rem;
+            padding-left: 3rem; /* Выравнивание по тексту, а не по цифре */
+            color: var(--text-muted);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 600px) {
+            .faq-container { padding: 0.5rem 1rem; }
+            .faq-question-left { gap: 1rem; }
+            .faq-answer-inner { padding-left: 0; }
+        }
+    </style>
+</head>
+<body class="faq-body">
+
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="logo">
+                <a href="index.html" class="logo-link"><img src="img/residia.svg" alt="RESIDIA Logo" class="brand-logo"></a>
+            </div>
+            
+            <nav class="main-nav">
+                <a href="index.html#home">Главная</a>
+                <a href="index.html#services">Услуги</a>  
+                <a href="faq.html" class="active">FAQ</a>
+                <a href="index.html#contact" class="btn-primary">Связаться</a>
+            </nav>
+            
+            <button id="theme-toggle" class="theme-switch" aria-label="Переключить тему">
+                <span class="theme-switch-slider"></span>
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div class="faq-page-header">
+            <div class="container">
+                <div class="hero-badge" style="margin-bottom: 1rem;">База знаний</div>
+                <h1 class="faq-page-title">Часто задаваемые вопросы<span class="text-accent">.</span></h1>
+                <p class="faq-page-subtitle">Собрали для вас ответы на самые популярные вопросы о легализации, сроках и процессе работы с нами.</p>
+            </div>
+        </div>
+
+        <section class="faq-section">
+            <div class="container">
+                <div class="faq-container">
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">01</span>
+                                <span class="faq-text">Lorem ipsum dolor sit amet, consectetur adipiscing elit?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">02</span>
+                                <span class="faq-text">Duis aute irure dolor in reprehenderit in voluptate velit esse cillum?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">03</span>
+                                <span class="faq-text">Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">04</span>
+                                <span class="faq-text">Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">05</span>
+                                <span class="faq-text">Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">06</span>
+                                <span class="faq-text">Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">07</span>
+                                <span class="faq-text">Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">08</span>
+                                <span class="faq-text">Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">09</span>
+                                <span class="faq-text">At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            <div class="faq-question-left">
+                                <span class="faq-number">10</span>
+                                <span class="faq-text">Et harum quidem rerum facilis est et expedita distinctio nam libero tempore?</span>
+                            </div>
+                            <div class="faq-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </button>
+                        <div class="faq-answer-wrapper">
+                            <div class="faq-answer">
+                                <div class="faq-answer-inner">
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-grid">
+                
+                <div class="footer-brand">
+                    <img src="img/residia66.svg" alt="RESIDIA Logo" class="footer-logo">
+                    <p class="footer-mission">Премиальное сопровождение бизнеса <br> и легализация в Польше.</p>
+                </div>
+
+                <div class="footer-socials">
+                    <h4>Связаться</h4>
+                    <ul>
+                        <li><a href="https://t.me/residia_consulting" target="_blank">Telegram</a></li>
+                        <li><a href="https://www.instagram.com/residia.consulting/" target="_blank">Instagram</a></li>
+                        <li><a href="tel:+48571528293">+48 571 528 293</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-legal">
+                    <h4>Реквизиты</h4>
+                    <p>Warszawa, Polska</p>
+                    <div class="legal-ids">
+                        <span>NIP: 5213641211</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2026 RESIDIA Consulting. Все права защищены.</p>
+                <div class="footer-bottom-links">
+                    <a href="privacy.html">Privacy Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/theme.js"></script>
+    <script src="js/main.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const faqItems = document.querySelectorAll('.faq-item');
+
+            faqItems.forEach(item => {
+                const button = item.querySelector('.faq-question');
+                
+                button.addEventListener('click', () => {
+                    // Закрываем все остальные открытые вопросы (по желанию, можно убрать, если хочешь, чтобы они открывались независимо)
+                    faqItems.forEach(otherItem => {
+                        if (otherItem !== item && otherItem.classList.contains('active')) {
+                            otherItem.classList.remove('active');
+                        }
+                    });
+                    
+                    // Переключаем класс текущего вопроса
+                    item.classList.toggle('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
