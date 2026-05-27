@@ -2473,3 +2473,13 @@ html[data-theme="dark"] .btn-analyzer-hero::after {
 .btn-analyzer-hero:hover::after {
     left: 150%;
 }
+
+.analyzer-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.analyzer-main {
+    flex: 1; /* Растягивает основной контент, прижимая футер вниз */
+}
