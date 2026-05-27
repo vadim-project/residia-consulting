@@ -2385,3 +2385,12 @@ a.contact-item:hover .contact-value {
             .df-cta-col { flex-direction: column; }
             .dc-split { flex-direction: column; }
         }
+
+        /* Делаем сетку выбора ужендов двухколоночной на больших экранах */
+@media (min-width: 550px) {
+    .analyzer-options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+    }
+}
