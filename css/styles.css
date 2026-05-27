@@ -2394,3 +2394,82 @@ a.contact-item:hover .contact-value {
         gap: 0.6rem;
     }
 }
+
+/* ── УМНАЯ КНОПКА AI-АНАЛИЗАТОРА НА ГЛАВНОЙ ── */
+.hero-analyzer-cta {
+    margin-top: 2.5rem;
+    display: flex;
+    justify-content: center;
+}
+
+.btn-analyzer-hero {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    /* Асимметричный паддинг: слева текст, справа бейдж */
+    padding: 0.5rem 0.5rem 0.5rem 1.5rem; 
+    border-radius: 50px;
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+/* Эффект парения и неонового свечения при наведении */
+.btn-analyzer-hero:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 8px 30px rgba(16, 185, 129, 0.2); 
+    transform: translateY(-3px);
+}
+
+.btn-analyzer-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-color);
+    transition: transform 0.3s ease;
+}
+
+/* Иконка чуть увеличивается */
+.btn-analyzer-hero:hover .btn-analyzer-icon {
+    transform: scale(1.15) rotate(5deg);
+}
+
+.btn-analyzer-badge {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-color);
+    padding: 0.5rem 1rem;
+    border-radius: 30px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 0.5rem;
+}
+
+/* Световой блик, пробегающий по кнопке (эффект сканера) */
+.btn-analyzer-hero::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.6s ease;
+}
+
+html[data-theme="dark"] .btn-analyzer-hero::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
+.btn-analyzer-hero:hover::after {
+    left: 150%;
+}
