@@ -70,6 +70,63 @@ const AnalyzerState = {
 const FLOW = {
 
     // ── ENTRY ──────────────────────────────────────────────
+
+    main_goal: {
+        question: "Что именно вас интересует?",
+        subtitle: "Выберите наиболее подходящий вариант, чтобы система адаптировала юридические вопросы под ваш кейс.",
+        type: "options",
+        options: [
+            { id: "goal_work", label: "💼 Планирую подачу на карту побыта по работе", next: "nationality", scoring: {} },
+            { id: "goal_cukr", label: "🇺🇦 Планирую подачу на карту CUKR", next: "ukr_status", scoring: {} },
+            { id: "goal_family", label: "👨‍👩‍👧 Планирую подачу на карту побыта по воссоединению семьи", next: "nationality", scoring: {} },
+            { id: "goal_speedup", label: "Уже подан, хочу ускорить дело", next: "urzad_location", scoring: { stabilityScore: +10 } },
+        ]
+    },
+
+    // ── ВЕТКА: УСКОРЕНИЕ ДЕЛА (PONAGLENIE) ─────────────────
+    
+    urzad_location: {
+        question: "В какой воеводский ужонд подано ваше дело?",
+        type: "options",
+        options: [
+            { id: "urzad_mazowiecki", label: "🏢 Мазовецкий (Варшава)", next: "waiting_time", scoring: { risk: +2 } },
+            { id: "urzad_dolnoslaski", label: "Вроцлав (Нижнесилезский)", next: "waiting_time", scoring: { risk: +1 } },
+            { id: "urzad_other", label: "Другой ужонд", next: "waiting_time", scoring: {} }
+        ]
+    },
+
+    waiting_time: {
+        question: "Сколько месяцев прошло с момента подачи?",
+        subtitle: "По закону ужонд обязан рассмотреть дело за 60 дней, но на практике сроки сильно затягиваются.",
+        type: "options",
+        options: [
+            { id: "wait_less_3m", label: "Менее 3 месяцев (надо подождать)", next: "fingerprints_status", scoring: { overall: -5, stabilityScore: -10 } },
+            { id: "wait_3_6m", label: "От 3 до 6 месяцев", next: "fingerprints_status", scoring: { overall: +5 } },
+            { id: "wait_6_12m", label: "От 6 до 12 месяцев", next: "fingerprints_status", scoring: { overall: +10 } },
+            { id: "wait_more_12m", label: "Более года (пора писать жалобу)", next: "fingerprints_status", scoring: { overall: +15, risk: +3 } }
+        ]
+    },
+
+    fingerprints_status: {
+        question: "Вы уже сдали отпечатки пальцев и получили красную печать в паспорт?",
+        type: "options",
+        options: [
+            { id: "fingers_yes", label: "Да, отпечатки сданы, печать стоит", next: "wezwanie_status", scoring: { documentReadiness: +20, stabilityScore: +10 } },
+            { id: "fingers_no_letter", label: "Нет, даже не было письма с датой", next: "wezwanie_status", scoring: { documentReadiness: -15, risk: +2 } },
+            { id: "fingers_missed", label: "Пропустил(а) дату сдачи отпечатков", next: "wezwanie_status", scoring: { overall: -20, risk: +8, redFlag: "Пропуск сдачи отпечатков может привести к оставлению дела без рассмотрения" } }
+        ]
+    },
+
+    wezwanie_status: {
+        question: "Присылал ли вам инспектор письма (Wezwanie) с просьбой донести документы?",
+        type: "options",
+        options: [
+            { id: "wez_no", label: "Нет, писем не было", next: "lead_gate", scoring: { stabilityScore: +5 } },
+            { id: "wez_yes_done", label: "Да, документы донесены в срок", next: "lead_gate", scoring: { documentReadiness: +10 } },
+            { id: "wez_yes_missed", label: "Да, но я не успел(а) / проигнорировал(а)", next: "lead_gate", scoring: { overall: -25, risk: +10, redFlag: "Невыполнение требований Wezwanie — главная причина отказа" } }
+        ]
+    },
+
     nationality: {
         question: "Какое у вас гражданство?",
         subtitle: "Это определяет базовые права и ограничения для вашего кейса.",
@@ -429,7 +486,7 @@ const FLOW = {
 };
 
 // ─── 3. PROGRESS TRACKER ────────────────────────────────────
-const TOTAL_STEPS_ESTIMATE = 12;
+let TOTAL_STEPS_ESTIMATE = 12;
 
 function updateProgress(stepIndex) {
     const progressContainer = document.getElementById('analyzer-progress');
@@ -504,9 +561,17 @@ function bindOptionButtons(stepId) {
             const optionId = btn.dataset.optionId;
             const label = btn.dataset.optionLabel;
             const selectedOpt = step.options.find(o => o.id === optionId);
+
+            // === УМНОЕ ИЗМЕНЕНИЕ ДЛИНЫ КВИЗА ===
+            if (optionId === 'goal_speedup') TOTAL_STEPS_ESTIMATE = 6;
+            else if (optionId === 'goal_cukr') TOTAL_STEPS_ESTIMATE = 5;
+            else if (optionId === 'goal_family') TOTAL_STEPS_ESTIMATE = 6;
+            else if (optionId === 'goal_work') TOTAL_STEPS_ESTIMATE = 12;
+            // ===================================
+
             AnalyzerState.addAnswer(stepId, optionId, label, selectedOpt.scoring);
 
-            // Button highlight
+            // Подсветка кнопки
             document.querySelectorAll('.analyzer-option-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
 
@@ -517,8 +582,8 @@ function bindOptionButtons(stepId) {
     const backBtn = document.getElementById('btn-back');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            AnalyzerState.history.pop(); // remove current
-            const prev = AnalyzerState.history.pop(); // remove previous (will be re-added by renderStep)
+            AnalyzerState.history.pop(); 
+            const prev = AnalyzerState.history.pop(); 
             if (prev) renderStep(prev);
         });
     }
@@ -1584,10 +1649,39 @@ function injectAnalyzerStyles() {
     document.head.appendChild(style);
 }
 
+
 // ─── 10. INIT ──────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
     injectAnalyzerStyles();
+
+    // === АНИМАЦИЯ ПЕЧАТАЮЩЕГОСЯ ТЕКСТА ===
+    const typingContainer = document.getElementById('typing-text');
+    let typingTimer = null;
+
+    if (typingContainer) {
+        const fullText = "Привет, я умный анализатор шансов ВНЖ от ";
+        let index = 0;
+        
+        function typeEffect() {
+            if (index < fullText.length) {
+                typingContainer.innerHTML += fullText.charAt(index);
+                index++;
+                typingTimer = setTimeout(typeEffect, 45);
+            } else {
+                // Вставляем бренд с классом плавного проявления fade-in-brand
+                typingContainer.innerHTML += '<span class="text-accent fade-in-brand">Residia.</span>';
+                
+                // Убираем мигающий курсор чуть позже, чтобы он не исчезал обрывисто
+                setTimeout(() => {
+                    const cursor = document.querySelector('.typing-cursor');
+                    if (cursor) cursor.style.display = 'none';
+                }, 1000);
+            }
+        }
+        setTimeout(typeEffect, 300);
+    }
+    // =====================================
 
     const btnStart = document.getElementById('btn-start-analyzer');
     const stepOnboarding = document.getElementById('step-onboarding');
@@ -1595,11 +1689,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnStart && stepOnboarding && questionContainer) {
         btnStart.addEventListener('click', () => {
+            if (typingTimer) clearTimeout(typingTimer); 
+
             AnalyzerState.reset();
+            TOTAL_STEPS_ESTIMATE = 12;
+            
             stepOnboarding.classList.remove('active');
             stepOnboarding.classList.add('hidden');
             questionContainer.classList.remove('hidden');
-            renderStep('nationality');
+            renderStep('main_goal');
         });
     }
 });
+
