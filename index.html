@@ -37,6 +37,7 @@
                 <a href="#services">Услуги</a>  
                 <a href="faq.html">FAQ</a>
                 <a href="#contact" class="btn-primary">Связаться</a>
+                <a href="analyzer.html" class="nav-analyzer">Анализатор</a>
             </nav>
             
             <button id="theme-toggle" class="theme-switch" aria-label="Переключить тему">
@@ -341,6 +342,49 @@
         </div>
     </div>
 </footer>
+
+<button id="open-modal-fab" class="fab-chat-btn" aria-label="Открыть форму заявки">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+</button>
+
+<div id="callback-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <button id="close-modal-btn" class="modal-close-btn" aria-label="Закрыть форму">✕</button>
+        
+        <div class="hero-badge" style="margin-bottom: 1rem; display: inline-block;">Быстрая связь</div>
+        <h3 style="margin-top: 0; margin-bottom: 0.5rem; font-size: 1.4rem;">Оставить заявку</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.4;">
+            Укажите ваши контакты, и наш специалист свяжется с вами в течение получаса.
+        </p>
+        
+        <form id="modal-callback-form" novalidate>
+            <div class="an-input-group" style="margin-bottom: 1rem;">
+                <label for="md-name">Имя *</label>
+                <input type="text" id="md-name" required placeholder="Ваше имя">
+            </div>
+            
+            <div class="an-input-group" style="margin-bottom: 1rem;">
+                <label for="md-phone">Оставьте номер *</label>
+                <input type="tel" id="md-phone" required placeholder="+48 XXX XXX XXX">
+            </div>
+            
+            <div class="an-input-group" style="margin-bottom: 1.5rem;">
+                <label for="md-comment">Комментарий (по желанию)</label>
+                <textarea id="md-comment" rows="3" placeholder="Ваша ситуация или вопрос..."></textarea>
+            </div>
+            
+            <button type="submit" id="btn-modal-submit" class="btn-solid" style="width: 100%; justify-content: center;">
+                И мы с вами свяжемся →
+            </button>
+        </form>
+        
+        <p id="md-success-msg" class="hidden" style="color: var(--accent-color); margin-top: 1.25rem; text-align: center; font-weight: 600; font-size: 0.95rem;">
+            ✓ Заявка принята! Скоро наберем вас.
+        </p>
+    </div>
+</div>
     
     <script src="js/main.js"></script>
 </body>
