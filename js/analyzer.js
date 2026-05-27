@@ -1952,6 +1952,16 @@ function injectAnalyzerStyles() {
         .share-btn-wa:hover { color: #25d366; border-color: #25d366; }
         .share-btn-copy:hover { color: var(--accent-color); }
         .share-already { font-size: 0.85rem; font-weight: 600; min-height: 1.2em; transition: color 0.3s; }
+        
+        /* Сброс акцентного выделения кнопки Анализатор на самой странице квиза */
+        
+        .main-nav a.nav-analyzer {
+            color: var(--text-color) !important;
+            font-weight: 500 !important;
+        }
+        .main-nav a.nav-analyzer::before {
+            display: none !important;
+        }
     `;
     document.head.appendChild(style);
 }
