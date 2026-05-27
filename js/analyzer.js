@@ -78,10 +78,55 @@ const FLOW = {
         options: [
             { id: "goal_work", label: "Карта побыта по работе", next: "work_contract_type", scoring: {} },
             { id: "goal_cukr", label: "🇺🇦 Планирую подачу на карту CUKR", next: "cukr_pesel", scoring: {} },
-            { id: "goal_family", label: "👨‍👩‍👧 Планирую подачу на карту побыта по воссоединению семьи", next: "nationality", scoring: {} },
+            { id: "goal_family", label: "👨‍👩‍👧 Планирую подачу на карту побыта по воссоединению семьи", next: "fam_relative_work", scoring: {} },
             { id: "goal_speedup", label: "Уже подан, хочу ускорить дело", next: "urzad_location", scoring: { stabilityScore: +10 } },
         ]
     },
+
+
+// ── ВЕТКА: ВОССОЕДИНЕНИЕ СЕМЬИ (FAMILY REUNIFICATION) ─────────────────
+
+    fam_relative_work: {
+        question: "Работает ли официально член семьи, к которому вы переезжаете?",
+        subtitle: "Наличие стабильного источника дохода у принимающей стороны — обязательное условие для воссоединения.",
+        type: "options",
+        options: [
+            { id: "f_work_yes", label: "💼 Да, работает по найму (Umowa o pracę / Zlecenie)", next: "fam_relative_status", scoring: { incomeQuality: +15 } },
+            { id: "f_work_biz", label: "🏢 Да, ведет свой бизнес (JDG / Sp. z o.o.)", next: "fam_relative_status", scoring: { incomeQuality: +15 } },
+            { id: "f_work_no", label: "❌ Нет, не работает / Работает неофициально", next: "fam_relative_status", scoring: { overall: -30, incomeQuality: -30, risk: +8, redFlag: "Без официального дохода принимающей стороны получить карту по воссоединению семьи невозможно." } }
+        ]
+    },
+
+    fam_relative_status: {
+        question: "Какой статус пребывания в Польше у вашего родственника?",
+        subtitle: "От статуса принимающей стороны зависят ваши права (например, доступ к рынку труда без дополнительных разрешений).",
+        type: "options",
+        options: [
+            { id: "f_stat_karta", label: "💳 Временный ВНЖ (Karta Pobytu czasowego)", next: "fam_count_input", scoring: { stabilityScore: +10 } },
+            { id: "f_stat_blue", label: "🌐 Blue Card / Сталый побыт / Резидент ЕС", next: "fam_count_input", scoring: { immigrationTrust: +15, stabilityScore: +15, overall: +10 } },
+            { id: "f_stat_pl", label: "🇵🇱 Гражданство Польши (Паспорт)", next: "fam_count_input", scoring: { immigrationTrust: +25, overall: +15 } },
+            { id: "f_stat_visa", label: "⏳ Национальная виза / Печать (ждет решения)", next: "fam_count_input", scoring: { risk: +5, redFlag: "Воссоединение семьи обычно требует, чтобы родственник уже имел вид на жительство (Карту Побыту) или национальный статус." } }
+        ]
+    },
+
+    fam_count_input: {
+        question: "Сколько членов семьи будут подаваться на ВНЖ вместе с вами?",
+        subtitle: "Укажите количество человек (включая вас и детей), не считая принимающего родственника:",
+        type: "input_number",
+        placeholder: "Например: 2",
+        next: "fam_income_input"
+    },
+
+    fam_income_input: {
+        question: "Укажите официальный чистый доход вашего родственника в месяц (нетто, на руки):",
+        subtitle: "Сумма в PLN, подтвержденная договором, фактурами или налоговой декларацией (PIT):",
+        type: "input_number",
+        placeholder: "Например: 6000",
+        next: "lead_gate"
+    },
+
+    // ── ВЕТКА: КАРТА CUKR (UKR TEMPORARY PROTECTION) ─────────────────
+
 
     cukr_pesel: {
         question: "Каков статус вашего PESEL UKR на сегодняшний день?",
@@ -736,24 +781,22 @@ function bindInputButton(stepId) {
         
         input.style.borderColor = 'var(--border-color)';
         let warningText = "";
+        let displayTime = 4000; // Время показа сообщения по умолчанию
         
-        // Математика сроков ожидания
+        // 1. ЛОГИКА ДЛЯ ВЕТКИ ПОНАГЛЕНИЙ
         if (stepId === 'waiting_time_input') {
             const urzadId = AnalyzerState.answers['urzad_location']?.value;
             const urzadOpt = FLOW['urzad_location'].options.find(o => o.id === urzadId);
             const expectedWait = urzadOpt ? urzadOpt.expected_wait : 10;
             
             if (val >= expectedWait) {
-                // Жесткое нарушение сроков
                 AnalyzerState.redFlags.push(`Сроки нарушены: ожидание ${val} мес. (среднее ${expectedWait} мес.)`);
                 AnalyzerState.applyScoring({ risk: +4, stabilityScore: -10 });
-                
                 alertBox.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
                 alertBox.style.color = '#ef4444';
                 alertBox.style.borderColor = 'rgba(239, 68, 68, 0.3)';
                 warningText = `⚠️ <strong>Обнаружено нарушение сроков!</strong><br><br>Среднее время ожидания в вашем ужонде — ${expectedWait} мес. Вы ждете уже ${val} мес. Вам необходимо срочно подавать официальное Ponaglenie (жалобу на бездействие).`;
             } else {
-                // В пределах нормы ужонда
                 const left = expectedWait - val;
                 alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
                 alertBox.style.color = 'var(--text-color)';
@@ -762,21 +805,54 @@ function bindInputButton(stepId) {
             }
         }
         
-        // Записываем ответ в историю для финального отчета
-        AnalyzerState.answers[stepId] = { value: val, label: `${val} месяцев` };
+        // 2. ЛОГИКА ДЛЯ СЕМЕЙНОГО СЧЕТЧИКА КОЛИЧЕСТВА ЛЮДЕЙ
+        else if (stepId === 'fam_count_input') {
+            alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+            alertBox.style.color = 'var(--text-color)';
+            alertBox.style.borderColor = 'var(--accent-color)';
+            warningText = `✓ Данные зафиксированы. Переходим к расчету финансового критерия...`;
+            displayTime = 1000; // Быстрый переход для этого шага
+        }
         
-        // Показываем вердикт на 4 секунды, затем переводим на следующий шаг
+        // 3. ФОРМУЛА РАСЧЕТА ДОХОДА И ЖИЛЬЯ
+        else if (stepId === 'fam_income_input') {
+            const famCount = parseInt(AnalyzerState.answers['fam_count_input']?.value || 0);
+            const totalFamilySize = 1 + famCount; // Семья = Принимающий родственник + приглашенные
+            
+            // Формула: 600 PLN минимум на жизнь + 700 PLN фикс на жилье = 1300 PLN на человека
+            const requiredIncome = totalFamilySize * 1300;
+            
+            if (val >= requiredIncome) {
+                AnalyzerState.applyScoring({ incomeQuality: +20, overall: +15 });
+                alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+                alertBox.style.color = 'var(--text-color)';
+                alertBox.style.borderColor = 'var(--accent-color)';
+                warningText = `ℹ️ <strong>Финансовый критерий выполнен!</strong><br><br>Для вашей семьи из ${totalFamilySize} чел. (включая принимающую сторону) минимальный порог по закону составляет <strong>${requiredIncome} PLN</strong> (расчет: ~700 PLN/чел. на жилье + 600 PLN на жизнь). Доход в ${val} PLN полностью соответствует требованиям ужонда.`;
+            } else {
+                AnalyzerState.redFlags.push(`Недостаточный доход принимающей стороны: ${val} PLN при норме ${requiredIncome} PLN`);
+                AnalyzerState.applyScoring({ incomeQuality: -25, overall: -20, risk: +5 });
+                alertBox.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+                alertBox.style.color = '#ef4444';
+                alertBox.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                warningText = `⚠️ <strong>Недостаточно официального дохода!</strong><br><br>Для вашей семьи из ${totalFamilySize} чел. минимальный порог составляет <strong>${requiredIncome} PLN</strong> (600 PLN минимум на жизнь + ~700 PLN расходы на жилье за каждого). Текущий официальный доход ${val} PLN ниже нормы. Необходимо увеличить официальную ставку до подачи документов.`;
+            }
+        }
+        
+        // Записываем ответ в глобальное состояние
+        AnalyzerState.answers[stepId] = { value: val, label: stepId === 'fam_income_input' ? `${val} PLN` : `${val} чел.` };
+        
+        // Выводим плашку с расчетами
         alertBox.innerHTML = warningText;
         alertBox.classList.remove('hidden');
-        btnNext.style.display = 'none'; // Прячем кнопку, чтобы клиент прочитал текст
-        input.disabled = true; // Блокируем ввод
+        btnNext.style.display = 'none'; 
+        input.disabled = true; 
         
         setTimeout(() => {
             renderStep(step.next);
-        }, 4000);
+        }, displayTime);
     });
 
-    // Обработка кнопки "Назад"
+    // Кнопка Назад
     const backBtn = document.getElementById('btn-back');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
@@ -1883,4 +1959,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+
 
