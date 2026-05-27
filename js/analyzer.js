@@ -77,9 +77,9 @@ const FLOW = {
         type: "options",
         options: [
             { id: "goal_work", label: "Карта побыта по работе", next: "work_contract_type", scoring: {} },
-            { id: "goal_cukr", label: "🇺🇦 Планирую подачу на карту CUKR", next: "cukr_pesel", scoring: {} },
-            { id: "goal_family", label: "👨‍👩‍👧 Планирую подачу на карту побыта по воссоединению семьи", next: "fam_relative_work", scoring: {} },
-            { id: "goal_speedup", label: "Уже подан, хочу ускорить дело", next: "urzad_location", scoring: { stabilityScore: +10 } },
+            { id: "goal_cukr", label: "Подача на карту CUKR", next: "cukr_pesel", scoring: {} },
+            { id: "goal_family", label: "Карта побыта/Воссоединение семьи", next: "fam_relative_work", scoring: {} },
+            { id: "goal_speedup", label: "Ускорение вашего дела", next: "urzad_location", scoring: { stabilityScore: +10 } },
         ]
     },
 
@@ -484,11 +484,11 @@ const FLOW = {
         question: "Детали вашего бизнеса (JDG / Sp. z o.o.):",
         type: "options",
         options: [
-            { id: "jdg_real_revenue", label: "Стабильные обороты, польские клиенты, есть фактуры", next: "jdg_zus", scoring: { incomeQuality: +15, employerReliability: +10 } },
-            { id: "jdg_b2b_one", label: "Один клиент (B2B с одной компанией)", next: "jdg_zus", scoring: { risk: +4, incomeQuality: 0, redFlag: "JDG с одним клиентом — риск переквалификации в фиктивный бизнес" } },
-            { id: "jdg_new", label: "Бизнес открыт менее 6 месяцев назад", next: "jdg_zus", scoring: { incomeQuality: -10, risk: +4, redFlag: "JDG <6 мес. — нет истории доходов, стабильность неочевидна" } },
-            { id: "jdg_low_revenue", label: "Обороты минимальные или нестабильные", next: "jdg_zus", scoring: { incomeQuality: -20, overall: -10, risk: +5, redFlag: "Низкий оборот JDG — ужонд может счесть бизнес нежизнеспособным" } },
-        ]
+            { id: "jdg_real_revenue", label: "Стабильные обороты, польские клиенты, есть фактуры", next: "work_legal_status", scoring: { incomeQuality: +15, employerReliability: +10 } },
+            { id: "jdg_b2b_one", label: "Один клиент (B2B с одной компанией)", next: "work_legal_status", scoring: { risk: +4, incomeQuality: 0, redFlag: "JDG с одним клиентом — риск переквалификации в фиктивный бизнес" } },
+            { id: "jdg_new", label: "Бизнес открыт менее 6 месяцев назад", next: "work_legal_status", scoring: { incomeQuality: -10, risk: +4, redFlag: "JDG <6 мес. — нет истории доходов, стабильность неочевидна" } },
+            { id: "jdg_low_revenue", label: "Обороты минимальные или нестабильные", next: "work_legal_status", scoring: { incomeQuality: -20, overall: -10, risk: +5, redFlag: "Низкий оборот JDG — ужонд может счесть бизнес нежизнеспособным" } },
+        ]   
     },
 
     jdg_zus: {
@@ -642,7 +642,30 @@ const FLOW = {
 };
 
 // ─── 3. PROGRESS TRACKER ────────────────────────────────────
-let TOTAL_STEPS_ESTIMATE = 12;
+// === УМНЫЙ КАЛЬКУЛЯТОР ШАГОВ ===
+function getDynamicTotalSteps() {
+    const answers = AnalyzerState.answers;
+    let total = 7; // Базовое значение 
+
+    if (answers['main_goal']) {
+        const goal = answers['main_goal'].value;
+        if (goal === 'goal_speedup') total = 6;
+        else if (goal === 'goal_cukr') total = 6;
+        else if (goal === 'goal_family') total = 6;
+        else if (goal === 'goal_work') {
+            total = 7; // Стандартная длина по работе (7 шагов)
+            if (answers['work_contract_type']) {
+                const contract = answers['work_contract_type'].value;
+                if (contract === 'w_no_contract') total = 4; // Короткий путь
+                else if (contract === 'w_b2b_jdg') total = 6; // Путь через ИП
+            }
+        }
+    }
+    
+    // ПРЕДОХРАНИТЕЛЬ: Если реальная история длиннее предсказания — расширяем лимит
+    const actualSteps = Math.max(AnalyzerState.history.length, 1);
+    return Math.max(total, actualSteps);
+}
 
 function updateProgress(stepIndex) {
     const progressContainer = document.getElementById('analyzer-progress');
@@ -650,11 +673,15 @@ function updateProgress(stepIndex) {
     const stepCurrent = document.getElementById('step-current');
     const stepTotal = document.getElementById('step-total');
     if (!progressContainer || !progressFill) return;
-    progressContainer.classList.remove('hidden');
-    const pct = Math.min(95, Math.round(((stepIndex + 1) / TOTAL_STEPS_ESTIMATE) * 100));
+    
+    const currentTotal = getDynamicTotalSteps();
+    const current = Math.min(currentTotal, stepIndex + 1);
+    
+    const pct = Math.min(95, Math.round((current / currentTotal) * 100));
+    
     progressFill.style.width = pct + '%';
-    if (stepCurrent) stepCurrent.textContent = stepIndex + 1;
-    if (stepTotal) stepTotal.textContent = TOTAL_STEPS_ESTIMATE;
+    if (stepCurrent) stepCurrent.textContent = current;
+    if (stepTotal) stepTotal.textContent = currentTotal;
 }
 
 // ─── 4. RENDERER ───────────────────────────────────────────
@@ -670,7 +697,21 @@ function renderStep(stepId) {
     container.classList.remove('active');
     container.classList.add('hidden');
 
-    updateProgress(AnalyzerState.history.length - 1);
+    // === УМНЫЙ ПРОГРЕСС-БАР ===
+    if (step.type === 'lead_gate') {
+        const progressFill = document.getElementById('progress-fill');
+        const stepCurrent = document.getElementById('step-current');
+        const stepTotal = document.getElementById('step-total'); // <-- Находим правую цифру
+        
+        const total = getDynamicTotalSteps();
+        
+        if (progressFill) progressFill.style.width = '95%';
+        if (stepCurrent) stepCurrent.textContent = total; 
+        if (stepTotal) stepTotal.textContent = total; // <-- Обновляем правую цифру
+    } else if (step.type !== 'ai_result') {
+        updateProgress(AnalyzerState.history.length - 1);
+    }
+    // ==========================
 
     setTimeout(() => {
         if (step.type === 'lead_gate') {
@@ -680,7 +721,6 @@ function renderStep(stepId) {
             container.innerHTML = buildLoadingScreen();
             runAIAnalysis();
         } else if (step.type === 'input_number') {
-            // Рендерим шаг с полем ввода
             container.innerHTML = buildInputStep(step, stepId);
             bindInputButton(stepId);
         } else {
@@ -692,6 +732,7 @@ function renderStep(stepId) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 280);
 }
+
 
 function buildOptionsStep(step) {
     const redFlagAlert = AnalyzerState.redFlags.length > 0 && AnalyzerState.redFlags.length % 2 === 0
@@ -722,13 +763,6 @@ function bindOptionButtons(stepId) {
             const label = btn.dataset.optionLabel;
             const selectedOpt = step.options.find(o => o.id === optionId);
 
-            // === УМНОЕ ИЗМЕНЕНИЕ ДЛИНЫ КВИЗА ===
-            if (optionId === 'goal_speedup') TOTAL_STEPS_ESTIMATE = 6;
-            else if (optionId === 'goal_cukr') TOTAL_STEPS_ESTIMATE = 6;
-            else if (optionId === 'goal_family') TOTAL_STEPS_ESTIMATE = 6;
-            else if (optionId === 'goal_work') TOTAL_STEPS_ESTIMATE = 7;
-            // ===================================
-
             AnalyzerState.addAnswer(stepId, optionId, label, selectedOpt.scoring);
 
             // Подсветка кнопки
@@ -744,6 +778,10 @@ function bindOptionButtons(stepId) {
         backBtn.addEventListener('click', () => {
             AnalyzerState.history.pop(); 
             const prev = AnalyzerState.history.pop(); 
+            
+            // СБРАСЫВАЕМ ОТВЕТ, чтобы умный счетчик корректно пересчитал шаги
+            delete AnalyzerState.answers[prev]; 
+            
             if (prev) renderStep(prev);
         });
     }
@@ -858,6 +896,10 @@ function bindInputButton(stepId) {
         backBtn.addEventListener('click', () => {
             AnalyzerState.history.pop(); 
             const prev = AnalyzerState.history.pop(); 
+            
+            // СБРАСЫВАЕМ ОТВЕТ, чтобы умный счетчик корректно пересчитал шаги
+            delete AnalyzerState.answers[prev]; 
+            
             if (prev) renderStep(prev);
         });
     }
@@ -1262,9 +1304,16 @@ function activateDiscount(basePrice, discountPrice) {
 function renderFinalResults(analysis, score) {
     const container = document.getElementById('question-container');
     const progressContainer = document.getElementById('analyzer-progress');
+    
     if (progressContainer) {
+        const finalTotal = getDynamicTotalSteps();
         document.getElementById('progress-fill').style.width = '100%';
-        document.getElementById('step-current').textContent = TOTAL_STEPS_ESTIMATE;
+        
+        const stepCurrent = document.getElementById('step-current');
+        const stepTotal = document.getElementById('step-total');
+        
+        if (stepCurrent) stepCurrent.textContent = finalTotal;
+        if (stepTotal) stepTotal.textContent = finalTotal; // <-- Теперь синхронизируем обе!
     }
 
     const name = AnalyzerState.contactInfo.name || 'Клиент';
@@ -1322,7 +1371,7 @@ function renderFinalResults(analysis, score) {
                     </div>
                     <div class="dm-divider"></div>
                     <div class="dm-item">
-                        <span class="dm-label">${isSpeedupPath ? 'Риск без рассмотр.' : 'Риск wezwanie'}</span>
+                        <span class="dm-label">${isSpeedupPath ? 'Риск задержки' : 'Риск wezwanie'}</span>
                         <span class="dm-val prob-${getProbClass(a.wezwanie_probability)}">${a.wezwanie_probability}</span>
                     </div>
                     <div class="dm-item">
@@ -1330,18 +1379,18 @@ function renderFinalResults(analysis, score) {
                         <span class="dm-val prob-${getProbClass(a.refusal_probability)}">${a.refusal_probability}</span>
                     </div>
                     <div class="dm-item">
-                        <span class="dm-label">Сроки</span>
+                        <span class="dm-label">Примерные сроки ожидания:</span>
                         <span class="dm-val text-accent">${a.timeline}</span>
                     </div>
                 </div>
 
                 <div class="dash-grid">
                     <div class="dash-card">
-                        <h4 class="dc-title">📋 Резюме и стратегия</h4>
+                        <h4 class="dc-title">Резюме и стратегия</h4>
                         <p class="dc-text"><strong>Вердикт:</strong> ${a.overall_verdict}</p>
                         <p class="dc-text"><strong>Цель:</strong> ${a.main_basis}</p>
                         
-                        <h4 class="dc-title" style="margin-top: 1rem;">⚡ Первоочередные шаги</h4>
+                        <h4 class="dc-title" style="margin-top: 1rem;">Первоочередные шаги</h4>
                         <ul class="dc-list">
                             ${a.urgent_actions.map(action => `<li>${action}</li>`).join('')}
                         </ul>
@@ -1373,7 +1422,7 @@ function renderFinalResults(analysis, score) {
 
                 <div class="dash-footer">
                     <div class="df-price-col">
-                        <span class="df-price-lbl">Ведение дела:</span>
+                        <span class="df-price-lbl">Цена сопровождения под ключ вместе со специалистом Residia</span>
                         <div class="df-price-val" id="price-numbers">
                             <span class="price-current" id="price-current">${basePrice} PLN</span>
                         </div>
@@ -1913,6 +1962,22 @@ function injectAnalyzerStyles() {
 document.addEventListener('DOMContentLoaded', () => {
     injectAnalyzerStyles();
 
+    // === ЛОГИКА ТЕМНОЙ/СВЕТЛОЙ ТЕМЫ ===
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const htmlElement = document.documentElement;
+    // Берем сохраненную тему из браузера или ставим светлую по умолчанию
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    
+    htmlElement.setAttribute('data-theme', savedTheme);
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = htmlElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            htmlElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+    }
     // === АНИМАЦИЯ ПЕЧАТАЮЩЕГОСЯ ТЕКСТА ===
     const typingContainer = document.getElementById('typing-text');
     let typingTimer = null;
@@ -1944,16 +2009,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnStart = document.getElementById('btn-start-analyzer');
     const stepOnboarding = document.getElementById('step-onboarding');
     const questionContainer = document.getElementById('question-container');
+    // ДОБАВИЛИ: Находим прогресс-бар в HTML
+    const progressContainer = document.getElementById('analyzer-progress');
 
     if (btnStart && stepOnboarding && questionContainer) {
         btnStart.addEventListener('click', () => {
             if (typingTimer) clearTimeout(typingTimer); 
 
             AnalyzerState.reset();
-            TOTAL_STEPS_ESTIMATE = 12;
             
             stepOnboarding.classList.remove('active');
             stepOnboarding.classList.add('hidden');
+            
+            // ИСПРАВЛЕНО: Делаем прогресс-бар видимым при старте!
+            if (progressContainer) {
+                progressContainer.classList.remove('hidden');
+            }
+            
             questionContainer.classList.remove('hidden');
             renderStep('main_goal');
         });
