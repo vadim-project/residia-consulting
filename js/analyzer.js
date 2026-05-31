@@ -51,9 +51,42 @@ const AnalyzerState = {
     },
 
     addAnswer(questionId, valueId, label, scoring) {
-        this.answers[questionId] = { value: valueId, label };
-        this.applyScoring(scoring);
-    },
+    // Вычисляем и сохраняем дельту ДО применения
+    const delta = {
+        overall:             scoring?.overall             || 0,
+        risk:                scoring?.risk                || 0,
+        documentReadiness:   scoring?.documentReadiness   || 0,
+        stabilityScore:      scoring?.stabilityScore      || 0,
+        immigrationTrust:    scoring?.immigrationTrust    || 0,
+        employerReliability: scoring?.employerReliability || 0,
+        residenceContinuity: scoring?.residenceContinuity || 0,
+        incomeQuality:       scoring?.incomeQuality       || 0,
+        redFlag:             scoring?.redFlag             || null,
+    };
+    this.answers[questionId] = { value: valueId, label, delta };
+    this.applyScoring(scoring);
+},
+
+rollbackAnswer(questionId) {
+    const ans = this.answers[questionId];
+    if (!ans || !ans.delta) { delete this.answers[questionId]; return; }
+    const d = ans.delta;
+    // Откатываем дельты (знаки инвертируем)
+    this.score.overall             = Math.min(100, this.score.overall             - d.overall);
+    this.score.risk                = Math.max(0,   this.score.risk                - d.risk);
+    this.score.documentReadiness   = Math.min(100, this.score.documentReadiness   - d.documentReadiness);
+    this.score.stabilityScore      = Math.min(100, this.score.stabilityScore      - d.stabilityScore);
+    this.score.immigrationTrust    = Math.min(100, this.score.immigrationTrust    - d.immigrationTrust);
+    this.score.employerReliability = Math.min(100, this.score.employerReliability - d.employerReliability);
+    this.score.residenceContinuity = Math.min(100, this.score.residenceContinuity - d.residenceContinuity);
+    this.score.incomeQuality       = Math.min(100, this.score.incomeQuality       - d.incomeQuality);
+    // Откатываем redFlag если был
+    if (d.redFlag) {
+        const idx = this.redFlags.indexOf(d.redFlag);
+        if (idx > -1) this.redFlags.splice(idx, 1);
+    }
+    delete this.answers[questionId];
+},
 
     getFinalScore() {
         const s = this.score;
@@ -799,7 +832,7 @@ function bindOptionButtons(stepId) {
             const prev = AnalyzerState.history.pop(); 
             
             // СБРАСЫВАЕМ ОТВЕТ, чтобы умный счетчик корректно пересчитал шаги
-            delete AnalyzerState.answers[prev]; 
+            AnalyzerState.rollbackAnswer(prev);
             
             if (prev) renderStep(prev);
         });
