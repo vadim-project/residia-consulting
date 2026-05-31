@@ -1215,9 +1215,10 @@ ${redFlagsText}
             body: JSON.stringify({
                 model: "claude-sonnet-4-20250514",
                 max_tokens: 1800,
-                messages: [
-                    { role: "user", content: systemPrompt + "\n\n" + userPrompt }
-                ]
+                system: systemPrompt,
+                    messages: [
+                    { role: "user", content: userPrompt }
+                    ]
             })
         });
 
