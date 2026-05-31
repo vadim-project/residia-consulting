@@ -97,7 +97,7 @@ const FLOW = {
             { id: "goal_work", label: "Карта побыта по работе", next: "work_contract_type", scoring: {} },
             { id: "goal_cukr", label: "Подача на карту CUKR", next: "cukr_pesel", scoring: {} },
             { id: "goal_family", label: "Карта побыта/Воссоединение семьи", next: "fam_relative_work", scoring: {} },
-            { id: "goal_speedup", label: "Ускорение вашего дела", next: "urzad_location", scoring: { stabilityScore: +10 } },
+            { id: "goal_speedup", label: "Ускорение вашего дела", next: "waiting_time_input", scoring: { stabilityScore: +10 } },
         ]
     },
 
@@ -254,22 +254,22 @@ const FLOW = {
         question: "В какой воеводский ужонд подано ваше дело?",
         type: "options",
         options: [
-            { id: "urzad_mazowiecki", label: "Мазовецкое (Варшава)", next: "waiting_time_input", scoring: {}, expected_wait: 12 },
-            { id: "urzad_dolnoslaski", label: "Нижнесилезское (Вроцлав)", next: "waiting_time_input", scoring: { risk: +1 }, expected_wait: 16 },
-            { id: "urzad_wielkopolskie", label: "Великопольское (Познань)", next: "waiting_time_input", scoring: { risk: +1 }, expected_wait: 11 },
-            { id: "urzad_opolskie", label: "Опольское (Ополе)", next: "waiting_time_input", scoring: { risk: +2 }, expected_wait: 19 },
-            { id: "urzad_pomorskie", label: "Поморское (Гданьск)", next: "waiting_time_input", scoring: {}, expected_wait: 10 },
-            { id: "urzad_slaskie", label: "Силезское (Катовице)", next: "waiting_time_input", scoring: {}, expected_wait: 9 },
-            { id: "urzad_malopolskie", label: "Малопольское (Краков)", next: "waiting_time_input", scoring: {}, expected_wait: 5 },
-            { id: "urzad_lodzkie", label: "Лодзинское (Лодзь)", next: "waiting_time_input", scoring: {}, expected_wait: 7 },
-            { id: "urzad_zachodniopomorskie", label: "Западнопоморское (Щецин)", next: "waiting_time_input", scoring: {}, expected_wait: 9 },
-            { id: "urzad_lubelskie", label: "Люблинское (Люблин)", next: "waiting_time_input", scoring: {}, expected_wait: 5 },
-            { id: "urzad_podkarpackie", label: "Подкарпатское (Жешув)", next: "waiting_time_input", scoring: {}, expected_wait: 6 },
-            { id: "urzad_kujawskopomorskie", label: "Куявско-Поморское (Быдгощ / Торунь)", next: "waiting_time_input", scoring: {}, expected_wait: 7 },
-            { id: "urzad_podlaskie", label: "Подляское (Белосток)", next: "waiting_time_input", scoring: {}, expected_wait: 6 },
-            { id: "urzad_lubuskie", label: "Любушское (Гожув / Зелёна-Гура)", next: "waiting_time_input", scoring: {}, expected_wait: 8 },
-            { id: "urzad_warminskomazurskie", label: "Варминско-Мазурское (Ольштын)", next: "waiting_time_input", scoring: {}, expected_wait: 6 },
-            { id: "urzad_swietokrzyskie", label: "Свентокшиское (Кельце)", next: "waiting_time_input", scoring: {}, expected_wait: 4 }
+            { id: "urzad_mazowiecki", label: "Мазовецкое (Варшава)", next: "main_goal", scoring: {}, expected_wait: 12 },
+            { id: "urzad_dolnoslaski", label: "Нижнесилезское (Вроцлав)", next: "main_goal", scoring: { risk: +1 }, expected_wait: 16 },
+            { id: "urzad_wielkopolskie", label: "Великопольское (Познань)", next: "main_goal", scoring: { risk: +1 }, expected_wait: 11 },
+            { id: "urzad_opolskie", label: "Опольское (Ополе)", next: "main_goal", scoring: { risk: +2 }, expected_wait: 19 },
+            { id: "urzad_pomorskie", label: "Поморское (Гданьск)", next: "main_goal", scoring: {}, expected_wait: 10 },
+            { id: "urzad_slaskie", label: "Силезское (Катовице)", next: "main_goal", scoring: {}, expected_wait: 9 },
+            { id: "urzad_malopolskie", label: "Малопольское (Краков)", next: "main_goal", scoring: {}, expected_wait: 5 },
+            { id: "urzad_lodzkie", label: "Лодзинское (Лодзь)", next: "main_goal", scoring: {}, expected_wait: 7 },
+            { id: "urzad_zachodniopomorskie", label: "Западнопоморское (Щецин)", next: "main_goal", scoring: {}, expected_wait: 9 },
+            { id: "urzad_lubelskie", label: "Люблинское (Люблин)", next: "main_goal", scoring: {}, expected_wait: 5 },
+            { id: "urzad_podkarpackie", label: "Подкарпатское (Жешув)", next: "main_goal", scoring: {}, expected_wait: 6 },
+            { id: "urzad_kujawskopomorskie", label: "Куявско-Поморское (Быдгощ / Торунь)", next: "main_goal", scoring: {}, expected_wait: 7 },
+            { id: "urzad_podlaskie", label: "Подляское (Белосток)", next: "main_goal", scoring: {}, expected_wait: 6 },
+            { id: "urzad_lubuskie", label: "Любушское (Гожув / Зелёна-Гура)", next: "main_goal", scoring: {}, expected_wait: 8 },
+            { id: "urzad_warminskomazurskie", label: "Варминско-Мазурское (Ольштын)", next: "main_goal", scoring: {}, expected_wait: 6 },
+            { id: "urzad_swietokrzyskie", label: "Свентокшиское (Кельце)", next: "main_goal", scoring: {}, expected_wait: 4 }
         ]
     },
 
@@ -661,21 +661,22 @@ const FLOW = {
 
 // ─── 3. PROGRESS TRACKER ────────────────────────────────────
 // === УМНЫЙ КАЛЬКУЛЯТОР ШАГОВ ===
+// === УМНЫЙ КАЛЬКУЛЯТОР ШАГОВ ===
 function getDynamicTotalSteps() {
     const answers = AnalyzerState.answers;
-    let total = 7; // Базовое значение 
+    let total = 8; // Базовое значение (было 7, добавили +1 за воеводство)
 
     if (answers['main_goal']) {
         const goal = answers['main_goal'].value;
-        if (goal === 'goal_speedup') total = 6;
-        else if (goal === 'goal_cukr') total = 6;
-        else if (goal === 'goal_family') total = 6;
+        if (goal === 'goal_speedup') total = 7;
+        else if (goal === 'goal_cukr') total = 7;
+        else if (goal === 'goal_family') total = 7;
         else if (goal === 'goal_work') {
-            total = 7; // Стандартная длина по работе (7 шагов)
+            total = 8; // Стандартная длина по работе
             if (answers['work_contract_type']) {
                 const contract = answers['work_contract_type'].value;
-                if (contract === 'w_no_contract') total = 4; // Короткий путь
-                else if (contract === 'w_b2b_jdg') total = 6; // Путь через ИП
+                if (contract === 'w_no_contract') total = 5; // Короткий путь
+                else if (contract === 'w_b2b_jdg') total = 7; // Путь через ИП
             }
         }
     }
@@ -1448,6 +1449,28 @@ function renderFinalResults(analysis, originalScore) {
 
     const a = analysis || (isSpeedupPath ? fallbackSpeedup : fallbackDefault);
 
+    // =========================================================
+    // ⏱ ЖЕСТКАЯ ПРИВЯЗКА СРОКОВ К ВОЕВОДСТВУ (OVERRIDE)
+    // =========================================================
+    const urzadId = answers['urzad_location']?.value;
+    if (urzadId && FLOW['urzad_location']) {
+        // Находим выбранное воеводство в нашей базе
+        const urzadOpt = FLOW['urzad_location'].options.find(o => o.id === urzadId);
+        
+        if (urzadOpt && urzadOpt.expected_wait) {
+            if (isSpeedupPath) {
+                // Если клиент хочет ускорить дело (Ponaglenie) — сроки всегда короткие
+                a.timeline = "1.5–3 мес.";
+            } else {
+                // Строгая вилка: (базовый срок) - (базовый срок + 3)
+                const minWait = urzadOpt.expected_wait;
+                const maxWait = minWait + 3;
+                a.timeline = `${minWait}–${maxWait} мес.`;
+            }
+        }
+    }
+    // =========================================================
+
     // Генерируем карточку предупреждения, если сработал стоп-фактор
     const criticalHtml = criticalRiskMessage ? `
         <div class="result-card accent-border" style="border-left-color: #EF4444; background-color: rgba(239, 68, 68, 0.05); margin-bottom: 1.5rem;">
@@ -2140,13 +2163,14 @@ document.addEventListener('DOMContentLoaded', () => {
             stepOnboarding.classList.remove('active');
             stepOnboarding.classList.add('hidden');
             
-            // ИСПРАВЛЕНО: Делаем прогресс-бар видимым при старте!
             if (progressContainer) {
                 progressContainer.classList.remove('hidden');
             }
             
             questionContainer.classList.remove('hidden');
-            renderStep('main_goal');
+            
+            // СТАРТУЕМ С ВОЕВОДСТВА ВМЕСТО MAIN_GOAL
+            renderStep('urzad_location'); 
         });
     }
 });
