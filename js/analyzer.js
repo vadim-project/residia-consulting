@@ -60,7 +60,25 @@ const AnalyzerState = {
         const subscores = [s.documentReadiness, s.stabilityScore, s.immigrationTrust,
                            s.employerReliability, s.residenceContinuity, s.incomeQuality];
         const avg = subscores.reduce((a, b) => a + b, 0) / subscores.length;
-        return Math.max(0, Math.min(100, Math.round((s.overall * 0.4) + (avg * 0.6))));
+        let finalScore = Math.max(0, Math.min(100, Math.round((s.overall * 0.4) + (avg * 0.6))));
+
+        // === ПРИМЕНЯЕМ СТОП-ФАКТОРЫ ГЛОБАЛЬНО ===
+        // Теперь и Lead Gate, и Webhook, и финальный экран будут видеть правильную цифру
+        const answers = this.answers;
+        const goal = answers['main_goal']?.value;
+        const contract = answers['work_contract_type']?.value;
+        const cukrIncome = answers['cukr_income']?.value;
+        const famWork = answers['fam_relative_work']?.value;
+
+        if (goal === 'goal_work' && contract === 'w_no_contract') {
+            finalScore = Math.min(finalScore, 15);
+        } else if (goal === 'goal_cukr' && cukrIncome === 'c_inc_none') {
+            finalScore = Math.min(finalScore, 15);
+        } else if (goal === 'goal_family' && famWork === 'f_work_no') {
+            finalScore = Math.min(finalScore, 10);
+        }
+
+        return finalScore;
     }
 };
 
@@ -181,7 +199,7 @@ const FLOW = {
             { id: "w_umowa_zlecenie", label: "📋 Umowa Zlecenie (Договор подряда)", next: "work_salary", scoring: { incomeQuality: +5 } },
             { id: "w_b2b_jdg", label: "🏢 B2B контракт (своё ИП / JDG)", next: "jdg_path", scoring: { incomeQuality: +10 } }, // Эта кнопка умно перекинет юзера на уже существующую ветку бизнеса
             { id: "w_agency", label: "🏭 Работаю через агенцию (Agencja Pracy)", next: "work_salary", scoring: { employerReliability: -15, risk: +3, redFlag: "Работа через агенцию требует дополнительных договоров (umowa outsourcingowa), что усложняет проверку ужондом." } },
-            { id: "w_no_contract", label: "❌ Пока нет договора / Ищу работу", next: "work_legal_status", scoring: { overall: -20, incomeQuality: -30, risk: +5, redFlag: "Для подачи по работе необходимо иметь активный договор или официальную promesę." } }
+            { id: "w_no_contract", label: "❌ Пока нет договора / Ищу работу", next: "work_legal_status", scoring: { overall: -20, incomeQuality: -30, risk: +5, redFlag: "Для подачи по работе необходимо иметь активный договор." } }
         ]
     },
 
@@ -1301,30 +1319,59 @@ function activateDiscount(basePrice, discountPrice) {
     }
 }
 
-function renderFinalResults(analysis, score) {
+function renderFinalResults(analysis, originalScore) {
     const container = document.getElementById('question-container');
     const progressContainer = document.getElementById('analyzer-progress');
 
     // =========================================================
-    // 🚀 ОТПРАВКА ПОЛНОСТЬЮ УПАКОВАННОГО ЛИДА В MAKE.COM
+    // 🚨 ЛОГИКА СТОП-ФАКТОРОВ (ЖЕСТКАЯ РЕЗКА БАЛЛОВ)
     // =========================================================
-    const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/w1bmm599qgefp88bcyx56aw9nx49t28o    ';
+    let score = originalScore;
+    let criticalRiskMessage = null;
+    const answers = AnalyzerState.answers;
+    
+    // Вытягиваем ключевые ответы клиента по ID
+    const goal = answers['main_goal']?.value;
+    const contract = answers['work_contract_type']?.value;
+    const cukrIncome = answers['cukr_income']?.value;
+    const famWork = answers['fam_relative_work']?.value;
+
+    // ПРАВИЛО 1: Подача по работе, но нет контракта
+    if (goal === 'goal_work' && contract === 'w_no_contract') {
+        score = Math.min(score, 15);
+        criticalRiskMessage = "Вы выбрали ВНЖ по работе, но у вас пока нет официального контракта. Без Umowa o pracę, Zlecenie или B2B Ужонд выдаст 100% отказ. Сначала необходимо легализовать ваш доход.";
+    }
+    // ПРАВИЛО 2: CUKR без официального дохода
+    else if (goal === 'goal_cukr' && cukrIncome === 'c_inc_none') {
+        score = Math.min(score, 15);
+        criticalRiskMessage = "По закону для карты CUKR строго обязательно иметь официальный источник дохода в Польше на момент подачи. У вас его нет, поэтому шансы на одобрение минимальны.";
+    }
+    // ПРАВИЛО 3: Воссоединение семьи, но спонсор не работает
+    else if (goal === 'goal_family' && famWork === 'f_work_no') {
+        score = Math.min(score, 10);
+        criticalRiskMessage = "Для воссоединения семьи принимающий родственник обязан иметь стабильный официальный доход в Польше. Без подтвержденного дохода Ужонд не одобрит вам Карту Побыту.";
+    }
+    // =========================================================
+
+    // 🚀 ОТПРАВКА ПОЛНОСТЬЮ УПАКОВАННОГО ЛИДА В MAKE.COM
+    const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/w1bmm599qgefp88bcyx56aw9nx49t28o';
 
     // 1. Формируем красивый лог из всех ответов пользователя
-    let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов\n`;
+    let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов (Изначально было: ${originalScore})\n`;
+    if (criticalRiskMessage) {
+        answersLog += `🚨 СРАБОТАЛ СТОП-ФАКТОР: ${criticalRiskMessage}\n`;
+    }
     answersLog += `-----------------------------------\n\n`;
     
-    // Перебираем историю шагов (предполагается, что она хранится в AnalyzerState.history)
     if (AnalyzerState.history && AnalyzerState.history.length > 0) {
-        AnalyzerState.history.forEach((step, index) => {
-            // Исключаем стартовый экран и шаг сбора контактов
-            if (step.type !== 'onboarding' && step.type !== 'lead_gate' && step.question) {
-                // Если ответ был текстом или объектом, вытягиваем его
-                let answerText = step.answer || 'Не ответил';
-                if (typeof step.answer === 'object' && step.answer.text) {
-                    answerText = step.answer.text;
+        AnalyzerState.history.forEach((stepId, index) => {
+            const step = FLOW[stepId];
+            if (step && step.type !== 'onboarding' && step.type !== 'lead_gate' && step.question) {
+                let answerText = 'Пропущен';
+                const savedAns = AnalyzerState.answers[stepId];
+                if (savedAns) {
+                    answerText = savedAns.label || savedAns.value || 'Нет данных';
                 }
-                
                 answersLog += `❓ Вопрос ${index}: ${step.question}\n`;
                 answersLog += `👉 Ответ: ${answerText}\n\n`;
             }
@@ -1336,13 +1383,13 @@ function renderFinalResults(analysis, score) {
         name: AnalyzerState.contactInfo.name || 'Без имени',
         phone: AnalyzerState.contactInfo.phone || 'Без телефона',
         telegram: AnalyzerState.contactInfo.telegram || '',
-        service: 'Анализатор ВНЖ (AI)', // Жестко задаем услугу
-        source: 'analyzer_quiz',       // Помечаем источник
-        comment: answersLog,           // Всю анкету запихиваем в комментарий!
+        service: 'Анализатор ВНЖ (AI)', 
+        source: 'analyzer_quiz',       
+        comment: answersLog,           
         submitted_at: new Date().toISOString()
     };
 
-    // 3. Отправляем в фоне (без остановки интерфейса)
+    // 3. Отправляем в фоне
     fetch(MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1361,18 +1408,16 @@ function renderFinalResults(analysis, score) {
         const stepTotal = document.getElementById('step-total');
         
         if (stepCurrent) stepCurrent.textContent = finalTotal;
-        if (stepTotal) stepTotal.textContent = finalTotal; // <-- Теперь синхронизируем обе!
-
-
+        if (stepTotal) stepTotal.textContent = finalTotal; 
     }
 
     const name = AnalyzerState.contactInfo.name || 'Клиент';
-    const scoreClass = getScoreClass(score);
+    const scoreClass = getScoreClass(score); // Теперь берет урезанный балл
     const redFlags = AnalyzerState.redFlags;
-    const basePrice = calcPrice(score, redFlags.length);
+    const basePrice = calcPrice(score, redFlags.length); // Урезанный балл автоматом сделает кейс "сложным" и повысит цену
     const isSpeedupPath = AnalyzerState.answers['main_goal']?.value === 'goal_speedup';
 
-    // Фолбеки (оставил твои тексты, только сжал)
+    // Фолбеки 
     const fallbackDefault = {
         headline: "Анализ завершён — требуется консультация специалиста",
         overall_verdict: "Кейс требует профессиональной оценки для выбора стратегии.",
@@ -1403,6 +1448,18 @@ function renderFinalResults(analysis, score) {
 
     const a = analysis || (isSpeedupPath ? fallbackSpeedup : fallbackDefault);
 
+    // Генерируем карточку предупреждения, если сработал стоп-фактор
+    const criticalHtml = criticalRiskMessage ? `
+        <div class="result-card accent-border" style="border-left-color: #EF4444; background-color: rgba(239, 68, 68, 0.05); margin-bottom: 1.5rem;">
+            <div class="result-card-header">
+                <span class="result-card-label" style="color: #EF4444;">🚨 Критический риск отказа</span>
+            </div>
+            <p class="result-card-text" style="color: #EF4444; font-weight: 500;">
+                ${criticalRiskMessage}
+            </p>
+        </div>
+    ` : '';
+
     container.classList.add('hidden');
     setTimeout(() => {
         let htmlTemplate = `
@@ -1413,6 +1470,8 @@ function renderFinalResults(analysis, score) {
                     <h2 class="dash-title">${name}, ваш экспресс-разбор готов.</h2>
                     <p class="dash-quote">"${a.headline}"</p>
                 </div>
+
+                ${criticalHtml}
 
                 <div class="dash-metrics-ribbon">
                     <div class="dm-score dm-${scoreClass}">
