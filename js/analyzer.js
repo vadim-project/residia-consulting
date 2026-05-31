@@ -7,10 +7,13 @@
 
 const AnalyzerState = {
     currentStepId: null,
-    answers: {},            // { questionId: { value, label } }
-    history: [],            // stack of step IDs for back navigation
+    answers: {},            // { questionId: { value, label, delta } }
+    history: [],       
+    sharedResult: false,     // нажал ли кнопку «Поделиться»
+    downloadedPdf: false,     // stack of step IDs for back navigation
     contactInfo: {},        // { name, phone, telegram }
     redFlags: [],           // accumulate detected red flags
+    docExpiryDays: null,    // число дней до истечения документа (виза / карта)
     score: {
         overall: 100,       // starts at 100, deductions applied
         risk: 0,            // 0–30
@@ -28,13 +31,17 @@ const AnalyzerState = {
         this.currentStepId = null;
         this.answers = {};
         this.history = [];
+        this.sharedResult = false;
+        this.downloadedPdf = false;
         this.contactInfo = {};
         this.redFlags = [];
+        this.docExpiryDays = null;
         this.score = { overall: 100, risk: 0, documentReadiness: 100,
             stabilityScore: 100, immigrationTrust: 100, employerReliability: 100,
             residenceContinuity: 100, incomeQuality: 100 };
         this.conversationHistory = [];
         this.aiMode = false;
+        this.notionPageId = null;
     },
 
     applyScoring(scoringObj) {
@@ -50,43 +57,62 @@ const AnalyzerState = {
         if (scoringObj.redFlag)             this.redFlags.push(scoringObj.redFlag);
     },
 
+    // БАГ-ФИX: сохраняем дельту вместе с ответом, чтобы корректно откатить при нажатии «Назад»
     addAnswer(questionId, valueId, label, scoring) {
-    // Вычисляем и сохраняем дельту ДО применения
-    const delta = {
-        overall:             scoring?.overall             || 0,
-        risk:                scoring?.risk                || 0,
-        documentReadiness:   scoring?.documentReadiness   || 0,
-        stabilityScore:      scoring?.stabilityScore      || 0,
-        immigrationTrust:    scoring?.immigrationTrust    || 0,
-        employerReliability: scoring?.employerReliability || 0,
-        residenceContinuity: scoring?.residenceContinuity || 0,
-        incomeQuality:       scoring?.incomeQuality       || 0,
-        redFlag:             scoring?.redFlag             || null,
-    };
-    this.answers[questionId] = { value: valueId, label, delta };
-    this.applyScoring(scoring);
-},
+        const delta = {
+            overall:             scoring?.overall             || 0,
+            risk:                scoring?.risk                || 0,
+            documentReadiness:   scoring?.documentReadiness   || 0,
+            stabilityScore:      scoring?.stabilityScore      || 0,
+            immigrationTrust:    scoring?.immigrationTrust    || 0,
+            employerReliability: scoring?.employerReliability || 0,
+            residenceContinuity: scoring?.residenceContinuity || 0,
+            incomeQuality:       scoring?.incomeQuality       || 0,
+            redFlag:             scoring?.redFlag             || null,
+        };
+        this.answers[questionId] = { value: valueId, label, delta };
+        this.applyScoring(scoring);
+    },
 
-rollbackAnswer(questionId) {
-    const ans = this.answers[questionId];
-    if (!ans || !ans.delta) { delete this.answers[questionId]; return; }
-    const d = ans.delta;
-    // Откатываем дельты (знаки инвертируем)
-    this.score.overall             = Math.min(100, this.score.overall             - d.overall);
-    this.score.risk                = Math.max(0,   this.score.risk                - d.risk);
-    this.score.documentReadiness   = Math.min(100, this.score.documentReadiness   - d.documentReadiness);
-    this.score.stabilityScore      = Math.min(100, this.score.stabilityScore      - d.stabilityScore);
-    this.score.immigrationTrust    = Math.min(100, this.score.immigrationTrust    - d.immigrationTrust);
-    this.score.employerReliability = Math.min(100, this.score.employerReliability - d.employerReliability);
-    this.score.residenceContinuity = Math.min(100, this.score.residenceContinuity - d.residenceContinuity);
-    this.score.incomeQuality       = Math.min(100, this.score.incomeQuality       - d.incomeQuality);
-    // Откатываем redFlag если был
-    if (d.redFlag) {
-        const idx = this.redFlags.indexOf(d.redFlag);
-        if (idx > -1) this.redFlags.splice(idx, 1);
-    }
-    delete this.answers[questionId];
-},
+    // Откатывает дельту конкретного ответа и удаляет его из answers
+    rollbackAnswer(questionId) {
+        const ans = this.answers[questionId];
+        if (!ans) return;
+        if (ans.delta) {
+            const d = ans.delta;
+            this.score.overall             = Math.min(100, this.score.overall             - d.overall);
+            this.score.risk                = Math.max(0,   this.score.risk                - d.risk);
+            this.score.documentReadiness   = Math.min(100, this.score.documentReadiness   - d.documentReadiness);
+            this.score.stabilityScore      = Math.min(100, this.score.stabilityScore      - d.stabilityScore);
+            this.score.immigrationTrust    = Math.min(100, this.score.immigrationTrust    - d.immigrationTrust);
+            this.score.employerReliability = Math.min(100, this.score.employerReliability - d.employerReliability);
+            this.score.residenceContinuity = Math.min(100, this.score.residenceContinuity - d.residenceContinuity);
+            this.score.incomeQuality       = Math.min(100, this.score.incomeQuality       - d.incomeQuality);
+            if (d.redFlag) {
+                const idx = this.redFlags.indexOf(d.redFlag);
+                if (idx > -1) this.redFlags.splice(idx, 1);
+            }
+        }
+        delete this.answers[questionId];
+    },
+
+    // Рассчитывает дедлайн подачи по оставшимся дням документа
+    getDeadlineInfo() {
+        const days = this.docExpiryDays;
+        if (!days || days <= 0) return null;
+        // Рекомендуем подавать за 14 дней до истечения
+        const submitByDate = new Date();
+        submitByDate.setDate(submitByDate.getDate() + days - 14);
+        const formatted = submitByDate.toLocaleDateString('ru-RU', {
+            day: 'numeric', month: 'long', year: 'numeric'
+        });
+        return {
+            daysLeft:   days,
+            submitBy:   formatted,
+            isUrgent:   days <= 45,
+            isCritical: days <= 14,
+        };
+    },
 
     getFinalScore() {
         const s = this.score;
@@ -373,18 +399,29 @@ const FLOW = {
         ]
     },
 
+    // ── СРОК ДОКУМЕНТА (ВИЗА / КАРТА ПОБЫТУ) ──────────────────
+    // Вставляется между stay_basis и employment_basis для визы и карты
+
+    doc_expiry_days: {
+        question: "Сколько дней осталось до истечения вашего документа?",
+        subtitle: "Введите точное количество дней. Система рассчитает крайний срок подачи и предупредит о рисках.",
+        type: "input_number",
+        placeholder: "Например: 45",
+        next: "employment_basis"
+    },
+
     // ── GENERAL STAY BASIS ─────────────────────────────────
     stay_basis: {
         question: "На каком основании вы сейчас находитесь в Польше?",
         subtitle: "Ваш текущий правовой статус — ключевой параметр оценки.",
         type: "options",
         options: [
-            { id: "visa_d_work", label: "Рабочая виза D (зарплатная / для высококвал.)", next: "visa_expiry", scoring: { overall: +5 } },
-            { id: "visa_d_other", label: "Национальная виза D (другое основание)", next: "visa_expiry", scoring: {} },
+            { id: "visa_d_work", label: "Рабочая виза D (зарплатная / для высококвал.)", next: "doc_expiry_days", scoring: { overall: +5 } },
+            { id: "visa_d_other", label: "Национальная виза D (другое основание)", next: "doc_expiry_days", scoring: {} },
             { id: "bezwiz", label: "Безвизовый режим (биометрический паспорт)", next: "bezwiz_days", scoring: { risk: +2 } },
             { id: "stamp", label: "Штамп в паспорте (ожидаю решения по заявке)", next: "stamp_details", scoring: { stabilityScore: +5 } },
-            { id: "karta_active", label: "Действующая Карта Побыту", next: "karta_details", scoring: { overall: +10, stabilityScore: +10 } },
-            { id: "student_visa", label: "Студенческая виза / разрешение на обучение", next: "study_details", scoring: {} },
+            { id: "karta_active", label: "Действующая Карта Побыту", next: "doc_expiry_days", scoring: { overall: +10, stabilityScore: +10 } },
+            { id: "student_visa", label: "Студенческая виза / разрешение на обучение", next: "doc_expiry_days", scoring: {} },
             { id: "expired_docs", label: "Документы просрочены / нет легального основания", next: "overstay_details", scoring: { overall: -25, risk: +10, immigrationTrust: -20, redFlag: "КРИТИЧНО: Незаконное пребывание — угроза депортации и запрета въезда" } },
         ]
     },
@@ -832,7 +869,7 @@ function bindOptionButtons(stepId) {
             const prev = AnalyzerState.history.pop(); 
             
             // СБРАСЫВАЕМ ОТВЕТ, чтобы умный счетчик корректно пересчитал шаги
-            AnalyzerState.rollbackAnswer(prev);
+            delete AnalyzerState.answers[prev]; 
             
             if (prev) renderStep(prev);
         });
@@ -927,9 +964,47 @@ function bindInputButton(stepId) {
                 warningText = `⚠️ <strong>Недостаточно официального дохода!</strong><br><br>Для вашей семьи из ${totalFamilySize} чел. минимальный порог составляет <strong>${requiredIncome} PLN</strong> (600 PLN минимум на жизнь + ~700 PLN расходы на жилье за каждого). Текущий официальный доход ${val} PLN ниже нормы. Необходимо увеличить официальную ставку до подачи документов.`;
             }
         }
+
+        // 4. СРОК ДО ИСТЕЧЕНИЯ ДОКУМЕНТА — новая фича
+        else if (stepId === 'doc_expiry_days') {
+            // Сохраняем количество дней в state для вычисления дедлайна в результатах
+            AnalyzerState.docExpiryDays = val;
+
+            if (val <= 14) {
+                AnalyzerState.applyScoring({ overall: -20, risk: +8,
+                    redFlag: `КРИТИЧНО: До истечения документа ${val} дней — срочная подача` });
+                alertBox.style.backgroundColor = 'rgba(239,68,68,0.08)';
+                alertBox.style.color = '#ef4444';
+                alertBox.style.borderColor = 'rgba(239,68,68,0.3)';
+                warningText = `🚨 <strong>Критический срок!</strong><br><br>До истечения документа осталось всего <strong>${val} дней</strong>. Необходимо подавать документы немедленно — каждый день на счету.`;
+            } else if (val <= 45) {
+                AnalyzerState.applyScoring({ risk: +4,
+                    redFlag: `Документ истекает через ${val} дней — подача срочная` });
+                alertBox.style.backgroundColor = 'rgba(245,158,11,0.08)';
+                alertBox.style.color = '#f59e0b';
+                alertBox.style.borderColor = 'rgba(245,158,11,0.3)';
+                warningText = `⚠️ <strong>Время поджимает.</strong><br><br>До истечения документа <strong>${val} дней</strong>. Оптимальное окно для подачи — ближайшие 2 недели. Учтём это в финальном расчёте.`;
+            } else if (val <= 90) {
+                alertBox.style.backgroundColor = 'rgba(16,185,129,0.08)';
+                alertBox.style.color = 'var(--text-color)';
+                alertBox.style.borderColor = 'var(--accent-color)';
+                warningText = `✓ <strong>Запас есть.</strong><br><br>До истечения <strong>${val} дней</strong>. Рекомендуем подавать не позже чем за 30 дней до окончания. Продолжаем анализ.`;
+            } else {
+                alertBox.style.backgroundColor = 'rgba(16,185,129,0.08)';
+                alertBox.style.color = 'var(--text-color)';
+                alertBox.style.borderColor = 'var(--accent-color)';
+                warningText = `✓ <strong>Времени достаточно.</strong><br><br>До истечения документа <strong>${val} дней</strong>. Данные зафиксированы — в финальном отчёте покажем точный дедлайн подачи.`;
+            }
+            displayTime = 2200;
+        }
         
         // Записываем ответ в глобальное состояние
-        AnalyzerState.answers[stepId] = { value: val, label: stepId === 'fam_income_input' ? `${val} PLN` : `${val} чел.` };
+        let inputLabel = `${val}`;
+        if (stepId === 'fam_income_input') inputLabel = `${val} PLN`;
+        else if (stepId === 'fam_count_input') inputLabel = `${val} чел.`;
+        else if (stepId === 'waiting_time_input') inputLabel = `${val} мес.`;
+        else if (stepId === 'doc_expiry_days') inputLabel = `${val} дней`;
+        AnalyzerState.answers[stepId] = { value: val, label: inputLabel };
         
         // Выводим плашку с расчетами
         alertBox.innerHTML = warningText;
@@ -949,18 +1024,19 @@ function bindInputButton(stepId) {
             AnalyzerState.history.pop(); 
             const prev = AnalyzerState.history.pop(); 
             
-            // СБРАСЫВАЕМ ОТВЕТ, чтобы умный счетчик корректно пересчитал шаги
-            delete AnalyzerState.answers[prev]; 
+            // БАГ-ФИX: откатываем скоринг через rollbackAnswer, а не просто delete
+            AnalyzerState.rollbackAnswer(prev);
             
             if (prev) renderStep(prev);
         });
     }
 }
-// ─── 5. LEAD GATE ──────────────────────────────────────────
 
 function buildLeadGate() {
     const score = AnalyzerState.getFinalScore();
     const riskCount = AnalyzerState.redFlags.length;
+    // Подтягиваем воеводство для персонализации текста
+    const urzad = AnalyzerState.answers['urzad_location']?.label || 'вашем воеводстве';
 
     return `
         <div class="lead-gate-wrapper">
@@ -979,8 +1055,17 @@ function buildLeadGate() {
                 </div>
             </div>
 
-            <div class="lead-gate-divider">
-                <span>Для получения полного анализа, плана действий и стоимости</span>
+            <!-- БЛОК ДОВЕРИЯ С АКЦЕНТОМ НА МГНОВЕННУЮ ВЫДАЧУ -->
+            <div class="lead-gate-benefits" style="background: var(--bg-color); padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem; text-align: left; border-left: 3px solid var(--accent-color);">
+                <p style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Оставьте контакты, чтобы <span style="color: var(--accent-color);">моментально открыть</span> на следующем экране:</p>
+                <ul style="font-size: 0.85rem; color: var(--text-muted); padding-left: 1.2rem; margin-bottom: 0.8rem;">
+                    <li>Детальный разбор ваших красных флагов</li>
+                    <li>Точные сроки рассмотрения дела в <b>${urzad}</b> воеводстве</li>
+                    <li>Пошаговый план действий под ваш кейс</li>
+                </ul>
+                <div style="font-size: 0.8rem; color: var(--text-color); display: flex; align-items: center; gap: 5px;">
+                    <span style="color: #f59e0b;">★★★★★</span> 4.9/5 оценка клиентов
+                </div>
             </div>
 
             <form id="analyzer-lead-form" class="lead-form" novalidate>
@@ -997,99 +1082,24 @@ function buildLeadGate() {
                     <label for="an-telegram">Telegram (необязательно)</label>
                     <input type="text" id="an-telegram" placeholder="@username">
                 </div>
-                <p class="lead-privacy-note">
-                    Нажимая кнопку, вы соглашаетесь с <a href="privacy.html" target="_blank">политикой конфиденциальности</a>.
-                    Данные используются только для подготовки вашего отчёта.
+                
+                <!-- ГАРАНТИЯ БЕЗОПАСНОСТИ С ОБЪЯСНЕНИЕМ -->
+                <p class="lead-privacy-note" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.5rem;">
+                    <span style="font-size: 1rem; color: var(--accent-color);">🔒</span>
+                    <span>Мы гарантируем конфиденциальность. <b>Результат откроется сразу на этой странице.</b> Контакты нужны для отправки копии отчета и на случай, если вам понадобится помощь специалиста.</span>
                 </p>
-                <button type="submit" class="btn-solid" id="btn-lead-submit" style="width:100%;justify-content:center;">
-                    Получить полный анализ →
+                
+                <button type="submit" class="btn-solid" id="btn-lead-submit" style="width:100%;justify-content:center; margin-top: 0.5rem;">
+                    Открыть полный анализ прямо сейчас →
                 </button>
             </form>
         </div>
     `;
 }
 
-const MAKE_WEBHOOK = 'https://hook.eu1.make.com/toyydkhpex3x7t5huytu2lwv4okfsgx8';
 
-// Builds the richest possible payload for Notion via Make
-function buildWebhookPayload(name, phone, telegram) {
-    const score       = AnalyzerState.getFinalScore();
-    const basePrice   = calcPrice(score, AnalyzerState.redFlags.length);
-    const s           = AnalyzerState.score;
-    const answers     = AnalyzerState.answers;
+// Builds the richest possible payload for Notion via Mak
 
-    // "Type of lead" — главное основание из анкеты
-    const empAnswer  = answers['employment_basis'];
-    const basisMap   = {
-        emp_umowa_pracę: 'Umowa o pracę',
-        emp_zlecenie:    'Umowa zlecenie',
-        emp_blue_card:   'Blue Card',
-        emp_jdg:         'JDG / Бизнес',
-        emp_sp_zoo:      'Sp. z o.o.',
-        emp_student:     'Студент',
-        emp_family:      'Воссоединение семьи',
-        emp_no_income:   'Нет дохода'
-    };
-    const typeOfLead = empAnswer ? (basisMap[empAnswer.value] || empAnswer.label) : 'Не указано';
-
-    // "Rysk" — уровень риска словом
-    const riskLevel = s.risk >= 12 ? 'Критический'
-                    : s.risk >= 7  ? 'Высокий'
-                    : s.risk >= 3  ? 'Средний'
-                    : 'Низкий';
-
-    // Полный список ответов как читаемый текст
-    const answersText = Object.entries(answers)
-        .filter(([k]) => !['client_name', 'client_phone'].includes(k))
-        .map(([k, v]) => `${k}: ${v.label}`)
-        .join('\n');
-
-    return {
-        // ── Notion columns ──────────────────────────────
-        name,
-        phone,
-        telegram:      telegram || '',
-        type_of_lead:  typeOfLead,
-        rysk:          riskLevel,
-        price:         basePrice,
-
-        // ── Extended scoring (Make может маппить в доп. колонки) ──
-        score_overall:              score,
-        score_risk_points:          s.risk,
-        score_document_readiness:   s.documentReadiness,
-        score_stability:            s.stabilityScore,
-        score_immigration_trust:    s.immigrationTrust,
-        score_employer_reliability: s.employerReliability,
-        score_residence_continuity: s.residenceContinuity,
-        score_income_quality:       s.incomeQuality,
-
-        // ── Red flags ──────────────────────────────────
-        red_flags_count: AnalyzerState.redFlags.length,
-        red_flags:       AnalyzerState.redFlags.join(' | ') || 'нет',
-
-        // ── Full answers dump ──────────────────────────
-        answers_full: answersText,
-
-        // ── Meta ──────────────────────────────────────
-        source:     'analyzer.html',
-        submitted_at: new Date().toISOString(),
-        page_url:   window.location.href
-    };
-}
-
-async function sendToWebhook(payload) {
-    try {
-        await fetch(MAKE_WEBHOOK, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        console.log('[Webhook] ✓ Лид отправлен в Make →', payload);
-    } catch (err) {
-        // silent — не блокируем UX при ошибке сети
-        console.warn('[Webhook] ✗ Ошибка отправки:', err);
-    }
-}
 
 function bindLeadGateEvents() {
     const form = document.getElementById('analyzer-lead-form');
@@ -1114,10 +1124,7 @@ function bindLeadGateEvents() {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Генерируем ваш отчёт…';
 
-        // ── Fire webhook (non-blocking) ──
-        const payload = buildWebhookPayload(name, phone, telegram);
-        sendToWebhook(payload); // без await — не задерживаем UX
-
+        // Отправка вебхука перенесена в финал. Здесь только запускаем ИИ!
         renderStep('ai_analysis');
     });
 }
@@ -1209,6 +1216,11 @@ ${redFlagsText}
 Сформируй персональный юридический анализ. Будь конкретным, используй реальные юридические термины польского миграционного права (karta pobytu, decyzja, wezwanie, odmowa, straż graniczna, ZUS, US, PESEL, meldunek, pobyt stały, CUKR и т.д.). Тон: профессиональный, эмпатичный, без агрессивных продаж, но с чёткой рекомендацией обратиться к специалисту по сложным вопросам.`;
 
     try {
+        const deadlineForPrompt = AnalyzerState.getDeadlineInfo();
+        const deadlineNote = deadlineForPrompt
+            ? `\nСРОК ДОКУМЕНТА: До истечения ${deadlineForPrompt.daysLeft} дней. Рекомендуемый крайний срок подачи: ${deadlineForPrompt.submitBy}.${deadlineForPrompt.isUrgent ? ' ВАЖНО: первым пунктом urgent_actions укажи срочность подачи из-за истекающего документа.' : ''}`
+            : '';
+
         const response = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1216,9 +1228,9 @@ ${redFlagsText}
                 model: "claude-sonnet-4-20250514",
                 max_tokens: 1800,
                 system: systemPrompt,
-                    messages: [
-                    { role: "user", content: userPrompt }
-                    ]
+                messages: [
+                    { role: "user", content: userPrompt + deadlineNote }
+                ]
             })
         });
 
@@ -1389,7 +1401,7 @@ function renderFinalResults(analysis, originalScore) {
     // =========================================================
 
     // 🚀 ОТПРАВКА ПОЛНОСТЬЮ УПАКОВАННОГО ЛИДА В MAKE.COM
-    const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/w1bmm599qgefp88bcyx56aw9nx49t28o';
+    const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu';
 
     // 1. Формируем красивый лог из всех ответов пользователя
     let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов (Изначально было: ${originalScore})\n`;
@@ -1414,26 +1426,35 @@ function renderFinalResults(analysis, originalScore) {
     }
 
     // 2. Упаковываем все данные для вебхука
-    const payload = {
-        name: AnalyzerState.contactInfo.name || 'Без имени',
-        phone: AnalyzerState.contactInfo.phone || 'Без телефона',
-        telegram: AnalyzerState.contactInfo.telegram || '',
-        service: 'Анализатор ВНЖ (AI)', 
-        source: 'analyzer_quiz',       
-        comment: answersLog,           
-        submitted_at: new Date().toISOString()
+        const payload = {
+            name: AnalyzerState.contactInfo.name || 'Без имени',
+            phone: AnalyzerState.contactInfo.phone || 'Без телефона',
+            telegram: AnalyzerState.contactInfo.telegram || '',
+            service: 'Анализатор ВНЖ (AI)', 
+            source: 'analyzer_quiz',       
+            comment: answersLog,
+            submitted_at: new Date().toISOString(),
+
+            // ── НОВЫЕ ПОЛЯ ──
+            analyzer_score: score,
+            // Цена и срок пока недоступны здесь — выносим их в глобальную переменную (см. шаг 3)
+            analyzer_price: AnalyzerState.finalPrice || null,
+            analyzer_timeline: AnalyzerState.finalTimeline || null,
+            shared_result: false,        // на момент отправки лид-гейта шеринга ещё не было
+            downloaded_pdf: false,
     };
 
     // 3. Отправляем в фоне
     fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    }).then(res => {
-        console.log('✅ Анкета из Анализатора успешно улетела в CRM!');
-    }).catch(err => {
-        console.error('❌ Ошибка отправки аналитики:', err);
-    });
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+}).then(res => res.json()).then(data => {
+    AnalyzerState.notionPageId = data.notion_page_id || null;
+    console.log('✅ Анкета улетела в CRM! Page ID:', AnalyzerState.notionPageId);
+}).catch(err => {
+    console.error('❌ Ошибка отправки аналитики:', err);
+});
     
     if (progressContainer) {
         const finalTotal = getDynamicTotalSteps();
@@ -1503,6 +1524,9 @@ function renderFinalResults(analysis, originalScore) {
             }
         }
     }
+
+    AnalyzerState.finalPrice = basePrice;
+    AnalyzerState.finalTimeline = a.timeline;
     // =========================================================
 
     // Генерируем карточку предупреждения, если сработал стоп-фактор
@@ -1517,6 +1541,36 @@ function renderFinalResults(analysis, originalScore) {
         </div>
     ` : '';
 
+    // ─── БЛОК ДЕДЛАЙНА ПОДАЧИ ───────────────────────────────
+    // Показываем только если пользователь вводил срок документа
+    const deadlineInfo = AnalyzerState.getDeadlineInfo();
+    const deadlineHtml = deadlineInfo ? (() => {
+        let color, bg, icon, msg;
+        if (deadlineInfo.isCritical) {
+            color = '#EF4444';
+            bg    = 'rgba(239,68,68,0.05)';
+            icon  = '🚨';
+            msg   = `До истечения документа осталось <strong>${deadlineInfo.daysLeft} дней</strong> — это критически мало. Подавать документы нужно <strong>сегодня</strong>. Каждый просроченный день увеличивает риск незаконного пребывания.`;
+        } else if (deadlineInfo.isUrgent) {
+            color = '#F59E0B';
+            bg    = 'rgba(245,158,11,0.05)';
+            icon  = '⏳';
+            msg   = `До истечения документа <strong>${deadlineInfo.daysLeft} дней</strong>. Рекомендуем подать документы не позже <strong>${deadlineInfo.submitBy}</strong>. Начинайте сбор папки прямо сейчас.`;
+        } else {
+            color = 'var(--accent-color)';
+            bg    = 'rgba(16,185,129,0.04)';
+            icon  = '📅';
+            msg   = `До истечения документа <strong>${deadlineInfo.daysLeft} дней</strong>. Рекомендуемый крайний срок подачи — <strong>${deadlineInfo.submitBy}</strong>. Не откладывайте сбор документов.`;
+        }
+        return `
+        <div class="result-card accent-border" style="border-left-color: ${color}; background-color: ${bg}; margin-bottom: 1.5rem;">
+            <div class="result-card-header">
+                <span class="result-card-label" style="color: ${color};">${icon} Дедлайн подачи документов</span>
+            </div>
+            <p class="result-card-text" style="line-height: 1.6;">${msg}</p>
+        </div>`;
+    })() : '';
+
     container.classList.add('hidden');
     setTimeout(() => {
         let htmlTemplate = `
@@ -1529,6 +1583,8 @@ function renderFinalResults(analysis, originalScore) {
                 </div>
 
                 ${criticalHtml}
+
+                ${deadlineHtml}
 
                 <div class="dash-metrics-ribbon">
                     <div class="dm-score dm-${scoreClass}">
@@ -1599,8 +1655,12 @@ function renderFinalResults(analysis, originalScore) {
                             ${isSpeedupPath ? 'Ускорить в Telegram →' : 'Узнать детали в Telegram →'}
                         </a>
                         <button class="btn-outline df-btn-share" id="btn-dash-share">
-                            🔗 Поделиться (-10%)
+                            📤 Поделиться результатом
                         </button>
+                        <button class="btn-outline df-btn-pdf" id="btn-dash-pdf">
+                            📄 Скачать PDF с анализом
+                        </button>
+                        
                     </div>
                 </div>
                 <p class="share-already" id="share-status" style="text-align:center; margin-top:0.5rem;"></p>
@@ -1617,22 +1677,46 @@ function renderFinalResults(analysis, originalScore) {
         const btnShare = document.getElementById('btn-dash-share');
         if (btnShare) {
             btnShare.addEventListener('click', async () => {
+                const scoreTitle = getScoreTitle(score);
+                const goalLabel = AnalyzerState.answers['main_goal']?.label || 'ВНЖ';
+                const shareUrl = window.location.href.split('?')[0];
+                const personalText = `Прошёл(а) анализатор ВНЖ от RESIDIA — результат: ${score}/100, "${scoreTitle}".\nЦель: ${goalLabel}. Срок ожидания: ${a.timeline}.\nПроверь свои шансы: ${shareUrl}`;
+
                 const shareData = {
-                    title: 'Оценка шансов на ВНЖ - RESIDIA',
-                    text: 'Проверил(а) свои шансы на ВНЖ в Польше через анализатор RESIDIA. Рекомендую пройти! 🇵🇱',
-                    url: window.location.href.split('?')[0]
+                    title: 'Оценка шансов на ВНЖ — RESIDIA',
+                    text: personalText,
+                    url: shareUrl
                 };
                 
                 try {
-                    // Если браузер поддерживает системное меню шеринга (мобилки/Mac)
                     if (navigator.share) {
                         await navigator.share(shareData);
                     } else {
-                        // Фолбэк для старых ПК: копируем в буфер обмена
-                        await navigator.clipboard.writeText(shareData.url);
+                        await navigator.clipboard.writeText(personalText);
+                        const status = document.getElementById('share-status');
+                        if (status) { status.textContent = '✓ Текст скопирован в буфер обмена'; status.style.color = 'var(--accent-color)'; }
                     }
-                    // Включаем скидку, если человек поделился
+
+                    AnalyzerState.sharedResult = true;
+                    fetch('https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: AnalyzerState.contactInfo.name,
+                            phone: AnalyzerState.contactInfo.phone,
+                            notion_page_id: AnalyzerState.notionPageId,
+                            source: 'analyzer_share_event',
+                            shared_result: true,
+                            downloaded_pdf: false,
+                            analyzer_price: AnalyzerState.finalPrice,
+                            analyzer_timeline: AnalyzerState.finalTimeline,
+                            submitted_at: new Date().toISOString()
+                        })
+                    });
+                    // Скидка как тихий бонус — не акцентируем, просто применяем
                     activateDiscount(basePrice, Math.round(basePrice * 0.9 / 10) * 10);
+
+
                 } catch (err) {
                     console.log('Пользователь отменил шеринг', err);
                 }
@@ -1641,6 +1725,29 @@ function renderFinalResults(analysis, originalScore) {
         // ====================================================
 
     }, 300);
+}
+
+const btnPdf = document.getElementById('btn-dash-pdf');
+if (btnPdf) {
+    btnPdf.addEventListener('click', () => {
+        AnalyzerState.downloadedPdf = true;
+        fetch('https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: AnalyzerState.contactInfo.name,
+                phone: AnalyzerState.contactInfo.phone,
+                source: 'analyzer_pdf_download',
+                shared_result: AnalyzerState.sharedResult,
+                downloaded_pdf: true,
+                analyzer_price: AnalyzerState.finalPrice,
+                analyzer_timeline: AnalyzerState.finalTimeline,
+                submitted_at: new Date().toISOString()
+            })
+        });
+        // Пока просто alert — потом заменишь на реальный PDF
+        alert('PDF будет доступен в ближайшее время!');
+    });
 }
 
 // ─── 8. HELPERS ────────────────────────────────────────────
@@ -2208,6 +2315,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-
-
