@@ -14,75 +14,77 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /* === 2. КОНТАКТНАЯ ФОРМА (ГЛАВНАЯ СТРАНИЦА) === */
-    const contactForm = document.getElementById('contact-form');
-    if (contactForm) {  
-        const cfSuccess = document.getElementById('cf-success');
-        const submitBtn = contactForm.querySelector('.btn-contact-submit');
-        const phoneRegex = /^\+48\d{9}$/;
-        
-        // ВАЖНО: Убедись, что тут стоит твой актуальный вебхук из Make!
-        const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/w1bmm599qgefp88bcyx56aw9nx49t28o';
+    // =========================================================
+    // ГЛОБАЛЬНЫЕ НАСТРОЙКИ ФОРМ
+    // =========================================================
+    // Единый вебхук (тот же, что и в Анализаторе)
+    const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu';
+    // Мягкая валидация (пропускает +, скобки, пробелы и коды любых стран)
+    const phoneRegex = /^\+?[0-9\s\-\(\)]{9,15}$/;
 
-        const fields = {
-            name: document.getElementById('cf-name'),
-            phone: document.getElementById('cf-phone'),
-            telegram: document.getElementById('cf-telegram'),
-            service: document.getElementById('cf-service'),
-            message: document.getElementById('cf-message')
-        };
-
-        Object.values(fields).forEach(input => {
-            if (input) {
-                input.addEventListener('input', () => {
-                    input.parentElement.classList.remove('has-error');
-                });
-            }
-        });
-
-        const validate = () => {
-            let valid = true;
-            if (!fields.name.value.trim()) { fields.name.parentElement.classList.add('has-error'); valid = false; }
-            const cleanPhone = fields.phone.value.replace(/[\s\-]/g, '');
-            if (!phoneRegex.test(cleanPhone)) { fields.phone.parentElement.classList.add('has-error'); valid = false; }
-            if (!fields.service.value) { fields.service.parentElement.classList.add('has-error'); valid = false; }
-            return valid;
-        };
-
-        contactForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!validate()) return;
+    /* === 2. КОНТАКТНАЯ ФОРМА (В ПОДВАЛЕ ГЛАВНОЙ СТРАНИЦЫ) === */
+    const mainForm = document.getElementById('contact-form');
+    if (mainForm) {
+        mainForm.addEventListener('submit', (e) => {
+            e.preventDefault(); // Блокируем стандартную отправку
             
+            const nameInput = document.getElementById('cf-name');
+            const phoneInput = document.getElementById('cf-phone');
+            const telegramInput = document.getElementById('cf-telegram');
+            const serviceInput = document.getElementById('cf-service');
+            const messageInput = document.getElementById('cf-message');
+            
+            const name = nameInput.value.trim();
+            const phone = phoneInput.value.trim();
+            const telegram = telegramInput ? telegramInput.value.trim() : '';
+            const service = serviceInput ? serviceInput.value : 'Не указано';
+            const message = messageInput ? messageInput.value.trim() : '';
+            
+            // Валидация
+            let hasError = false;
+            if (!name) { nameInput.parentElement.classList.add('has-error'); hasError = true; }
+            if (!phoneRegex.test(phone)) { phoneInput.parentElement.classList.add('has-error'); hasError = true; }
+            if (!service) { serviceInput.parentElement.classList.add('has-error'); hasError = true; }
+            
+            if (hasError) return;
+            
+            const submitBtn = mainForm.querySelector('.btn-contact-submit');
             submitBtn.classList.add('is-loading');
             submitBtn.disabled = true;
-
-            // Формируем JSON пакет для Make
+            
             const payload = {
-                name: fields.name.value.trim(),
-                phone: fields.phone.value.trim(),
-                telegram: fields.telegram.value.trim(),
-                service: fields.service.value,
-                comment: fields.message.value.trim(), // Отправляем сообщение как "comment" для унификации с модалкой
-                source: 'main_page_form', // Помечаем, откуда пришел лид
+                name: name,
+                phone: phone,
+                telegram: telegram,
+                service: service,
+                source: 'main_page_form',
+                comment: message,
                 submitted_at: new Date().toISOString()
             };
 
-            try {
-                const response = await fetch(MAKE_WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+            fetch(MAKE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                document.getElementById('cf-success').classList.remove('hidden');
+                mainForm.style.opacity = '0'; 
+                mainForm.style.pointerEvents = 'none';
+                
+                if (typeof fbq === 'function') {
+                    fbq('track', 'Contact', { content_name: 'Modal Form' });
+                }
 
-                if (response.ok) {
-                    contactForm.classList.add('hidden');
-                    cfSuccess.classList.remove('hidden');
-                } else { throw new Error(); }
-            } catch (err) {
-                alert('Ошибка отправки. Пожалуйста, напишите нам в Telegram @residia_consulting');
+            }).catch(err => {
+                console.error('Ошибка:', err);
                 submitBtn.classList.remove('is-loading');
                 submitBtn.disabled = false;
-            }
+                alert('Произошла ошибка связи с сервером. Попробуйте еще раз.');
+            });
+        });
+        
+        mainForm.querySelectorAll('input, select').forEach(input => {
+            input.addEventListener('input', () => input.parentElement.classList.remove('has-error'));
         });
     }
 
@@ -94,108 +96,115 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('close-modal-btn');
     const modalForm = document.getElementById('modal-callback-form');
 
-    // Клик по кнопке соцсетей
     if (fabToggle && fabWrapper) {
         fabToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             fabWrapper.classList.toggle('is-open');
             
-            // Прячем/показываем кнопку чата
             if (chatFab) {
-                if (fabWrapper.classList.contains('is-open')) {
-                    chatFab.classList.add('is-hidden');
-                } else {
-                    chatFab.classList.remove('is-hidden');
-                }
+                if (fabWrapper.classList.contains('is-open')) chatFab.classList.add('is-hidden');
+                else chatFab.classList.remove('is-hidden');
             }
         });
     }
 
-    // Функция закрытия модалки
     function closeModal() {
         if (modal) {
             modal.classList.add('hidden');
-            document.body.style.overflow = ''; // Возвращаем скролл
+            document.body.style.overflow = ''; 
             const successMsg = document.getElementById('md-success-msg');
             if (successMsg) successMsg.classList.add('hidden');
+            if (modalForm) {
+                modalForm.style.display = 'block';
+                modalForm.reset();
+            }
         }
     }
 
-    // Клик по новой кнопке чата
     if (chatFab && modal) {
         chatFab.addEventListener('click', (e) => {
             e.stopPropagation();
             if (modal.classList.contains('hidden')) {
                 modal.classList.remove('hidden');
-                document.body.style.overflow = 'hidden'; // Блокируем фон
+                document.body.style.overflow = 'hidden'; 
             } else {
-                closeModal(); // Двойной клик закрывает форму
+                closeModal();
             }
         });
     }
 
-    // Клик по документу (Глобальное закрытие)
     document.addEventListener('click', (event) => {
-        // Закрываем меню соцсетей, если клик мимо
         if (fabWrapper && fabWrapper.classList.contains('is-open') && !fabWrapper.contains(event.target)) {
             fabWrapper.classList.remove('is-open');
-            if (chatFab) chatFab.classList.remove('is-hidden'); // Возвращаем чат
+            if (chatFab) chatFab.classList.remove('is-hidden');
         }
-        // Закрываем модалку, если клик по темному фону
         if (modal && !modal.classList.contains('hidden') && event.target === modal) {
             closeModal();
         }
     });
 
-    // Клик по крестику модалки
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
 
-    // Отправка модальной формы в Make
+    // =========================================================
+    // 4. ФОРМА БЫСТРОЙ СВЯЗИ (В МОДАЛКЕ)
+    // =========================================================
     if (modalForm) {
-        const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/w1bmm599qgefp88bcyx56aw9nx49t28o';
-
-        modalForm.addEventListener('submit', async (e) => {
+        modalForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const name = document.getElementById('md-name').value.trim();
-            const phone = document.getElementById('md-phone').value.trim();
-            const comment = document.getElementById('md-comment').value.trim();
-
-            if (!name || !phone) { alert('Пожалуйста, укажите ваше имя и номер телефона.'); return; }
-
+            
+            const nameInput = document.getElementById('md-name');
+            const phoneInput = document.getElementById('md-phone');
+            const commentInput = document.getElementById('md-comment');
+            
+            const name = nameInput.value.trim();
+            const phone = phoneInput.value.trim();
+            const comment = commentInput ? commentInput.value.trim() : '';
+            
+            let hasError = false;
+            if (!name) { nameInput.style.borderColor = '#ef4444'; hasError = true; }
+            if (!phoneRegex.test(phone)) { phoneInput.style.borderColor = '#ef4444'; hasError = true; }
+            
+            if (hasError) return;
+            
             const submitBtn = document.getElementById('btn-modal-submit');
-            submitBtn.textContent = 'Отправка заявки...';
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = 'Отправка... ⏳';
             submitBtn.disabled = true;
-
+            
+            // ВАЖНО: Структура теперь строго совпадает с нижней формой!
             const payload = {
                 name: name,
                 phone: phone,
-                comment: comment || 'Без комментария',
-                source: 'floating_modal_chat',
+                telegram: '', // Пустое поле, чтобы не сломать парсер Make
+                service: 'Консультация', // ДОЛЖНО совпадать со списком Notion!
+                source: 'modal_form',
+                comment: comment,
                 submitted_at: new Date().toISOString()
             };
 
-            try {
-                await fetch(MAKE_WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                modalForm.reset();
+            fetch(MAKE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                modalForm.style.display = 'none';
                 document.getElementById('md-success-msg').classList.remove('hidden');
-                setTimeout(closeModal, 2500); // Автозакрытие
-            } catch (error) {
-                console.error('Ошибка отправки лида:', error);
-                alert('Произошла ошибка соединения. Попробуйте отправить форму повторно.');
-            } finally {
-                submitBtn.textContent = 'И мы с вами свяжемся →';
+                setTimeout(closeModal, 3000);
+            }).catch(err => {
+                console.error('Ошибка:', err);
+                submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
-            }
+                alert('Ошибка соединения. Попробуйте еще раз.');
+            });
+        });
+        
+        modalForm.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => input.style.borderColor = 'var(--border-color)');
         });
     }
 });
 
-/* === 4. АНИМАЦИИ И РЕНДЕР СЕРВИСОВ === */
+/* === 5. АНИМАЦИИ И РЕНДЕР СЕРВИСОВ (НЕ ТРОГАЕМ) === */
 const services = [
     { id: '01', tag: 'B2C', title: 'Карта CUKR', desc: 'Переход с временной защиты на ВНЖ сроком на 3 года для граждан Украины. Упрощенная процедура легализации.' },
     { id: '02', tag: 'B2C', title: 'Замена прав', desc: 'Полное сопровождение процесса обмена иностранного водительского удостоверения на польское.' },

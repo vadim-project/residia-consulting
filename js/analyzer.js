@@ -153,10 +153,10 @@ const FLOW = {
         subtitle: "Выберите наиболее подходящий вариант, чтобы система адаптировала юридические вопросы под ваш кейс.",
         type: "options",
         options: [
-            { id: "goal_work", label: "Карта побыта по работе", next: "work_contract_type", scoring: {} },
-            { id: "goal_cukr", label: "Подача на карту CUKR", next: "cukr_pesel", scoring: {} },
-            { id: "goal_family", label: "Карта побыта/Воссоединение семьи", next: "fam_relative_work", scoring: {} },
-            { id: "goal_speedup", label: "Ускорение вашего дела", next: "waiting_time_input", scoring: { stabilityScore: +10 } },
+            { id: "goal_work", label: "Карта побыта по работе", next: "urzad_location", scoring: {} },
+            { id: "goal_cukr", label: "Подача на карту CUKR", next: "urzad_location", scoring: {} },
+            { id: "goal_family", label: "Карта побыта/Воссоединение семьи", next: "urzad_location", scoring: {} },
+            { id: "goal_speedup", label: "Ускорение вашего дела", next: "urzad_location", scoring: { stabilityScore: +10 } },
         ]
     },
 
@@ -858,7 +858,19 @@ function bindOptionButtons(stepId) {
             document.querySelectorAll('.analyzer-option-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
 
-            setTimeout(() => renderStep(selectedOpt.next), 200);
+            // === УМНЫЙ РОУТИНГ ПОСЛЕ ВОЕВОДСТВА ===
+            let nextStep = selectedOpt.next;
+            
+            if (stepId === 'urzad_location') {
+                // Смотрим, что клиент выбрал на самом первом шаге
+                const goal = AnalyzerState.answers['main_goal']?.value;
+                if (goal === 'goal_work') nextStep = 'work_contract_type';
+                else if (goal === 'goal_cukr') nextStep = 'cukr_pesel';
+                else if (goal === 'goal_family') nextStep = 'fam_relative_work';
+                else if (goal === 'goal_speedup') nextStep = 'waiting_time_input';
+            }
+
+            setTimeout(() => renderStep(nextStep), 200);
         });
     });
 
@@ -868,8 +880,8 @@ function bindOptionButtons(stepId) {
             AnalyzerState.history.pop(); 
             const prev = AnalyzerState.history.pop(); 
             
-            // СБРАСЫВАЕМ ОТВЕТ, чтобы умный счетчик корректно пересчитал шаги
-            delete AnalyzerState.answers[prev]; 
+            // БАГ-ФИX: откатываем скоринг через rollbackAnswer
+            AnalyzerState.rollbackAnswer(prev); 
             
             if (prev) renderStep(prev);
         });
@@ -1104,7 +1116,7 @@ function buildLeadGate() {
 function bindLeadGateEvents() {
     const form = document.getElementById('analyzer-lead-form');
     if (!form) return;
-    const phoneRegex = /^\+48\d{9}$/;
+    const phoneRegex = /^\+?[0-9\s\-\(\)]{9,15}$/;
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1124,7 +1136,11 @@ function bindLeadGateEvents() {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Генерируем ваш отчёт…';
 
-        // Отправка вебхука перенесена в финал. Здесь только запускаем ИИ!
+        // Отправляем событие Лид в Facebook Pixel
+        if (typeof fbq === 'function') {
+            fbq('track', 'Lead', { content_name: 'Analyzer Completed' });
+        }
+
         renderStep('ai_analysis');
     });
 }
@@ -1400,77 +1416,13 @@ function renderFinalResults(analysis, originalScore) {
     }
     // =========================================================
 
-    // 🚀 ОТПРАВКА ПОЛНОСТЬЮ УПАКОВАННОГО ЛИДА В MAKE.COM
-    const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu';
-
-    // 1. Формируем красивый лог из всех ответов пользователя
-    let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов (Изначально было: ${originalScore})\n`;
-    if (criticalRiskMessage) {
-        answersLog += `🚨 СРАБОТАЛ СТОП-ФАКТОР: ${criticalRiskMessage}\n`;
-    }
-    answersLog += `-----------------------------------\n\n`;
-    
-    if (AnalyzerState.history && AnalyzerState.history.length > 0) {
-        AnalyzerState.history.forEach((stepId, index) => {
-            const step = FLOW[stepId];
-            if (step && step.type !== 'onboarding' && step.type !== 'lead_gate' && step.question) {
-                let answerText = 'Пропущен';
-                const savedAns = AnalyzerState.answers[stepId];
-                if (savedAns) {
-                    answerText = savedAns.label || savedAns.value || 'Нет данных';
-                }
-                answersLog += `❓ Вопрос ${index}: ${step.question}\n`;
-                answersLog += `👉 Ответ: ${answerText}\n\n`;
-            }
-        });
-    }
-
-    // 2. Упаковываем все данные для вебхука
-        const payload = {
-            name: AnalyzerState.contactInfo.name || 'Без имени',
-            phone: AnalyzerState.contactInfo.phone || 'Без телефона',
-            telegram: AnalyzerState.contactInfo.telegram || '',
-            service: 'Анализатор ВНЖ (AI)', 
-            source: 'analyzer_quiz',       
-            comment: answersLog,
-            submitted_at: new Date().toISOString(),
-
-            // ── НОВЫЕ ПОЛЯ ──
-            analyzer_score: score,
-            // Цена и срок пока недоступны здесь — выносим их в глобальную переменную (см. шаг 3)
-            analyzer_price: AnalyzerState.finalPrice || null,
-            analyzer_timeline: AnalyzerState.finalTimeline || null,
-            shared_result: false,        // на момент отправки лид-гейта шеринга ещё не было
-            downloaded_pdf: false,
-    };
-
-    // 3. Отправляем в фоне
-    fetch(MAKE_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-}).then(res => res.json()).then(data => {
-    AnalyzerState.notionPageId = data.notion_page_id || null;
-    console.log('✅ Анкета улетела в CRM! Page ID:', AnalyzerState.notionPageId);
-}).catch(err => {
-    console.error('❌ Ошибка отправки аналитики:', err);
-});
-    
-    if (progressContainer) {
-        const finalTotal = getDynamicTotalSteps();
-        document.getElementById('progress-fill').style.width = '100%';
-        
-        const stepCurrent = document.getElementById('step-current');
-        const stepTotal = document.getElementById('step-total');
-        
-        if (stepCurrent) stepCurrent.textContent = finalTotal;
-        if (stepTotal) stepTotal.textContent = finalTotal; 
-    }
-
+    // =========================================================
+    // 🧮 РАСЧЕТЫ БАЗОВЫХ ПЕРЕМЕННЫХ (ДО ОТПРАВКИ В MAKE)
+    // =========================================================
     const name = AnalyzerState.contactInfo.name || 'Клиент';
-    const scoreClass = getScoreClass(score); // Теперь берет урезанный балл
+    const scoreClass = getScoreClass(score); 
     const redFlags = AnalyzerState.redFlags;
-    const basePrice = calcPrice(score, redFlags.length); // Урезанный балл автоматом сделает кейс "сложным" и повысит цену
+    const basePrice = calcPrice(score, redFlags.length); 
     const isSpeedupPath = AnalyzerState.answers['main_goal']?.value === 'goal_speedup';
 
     // Фолбеки 
@@ -1504,20 +1456,15 @@ function renderFinalResults(analysis, originalScore) {
 
     const a = analysis || (isSpeedupPath ? fallbackSpeedup : fallbackDefault);
 
-    // =========================================================
     // ⏱ ЖЕСТКАЯ ПРИВЯЗКА СРОКОВ К ВОЕВОДСТВУ (OVERRIDE)
-    // =========================================================
     const urzadId = answers['urzad_location']?.value;
     if (urzadId && FLOW['urzad_location']) {
-        // Находим выбранное воеводство в нашей базе
         const urzadOpt = FLOW['urzad_location'].options.find(o => o.id === urzadId);
         
         if (urzadOpt && urzadOpt.expected_wait) {
             if (isSpeedupPath) {
-                // Если клиент хочет ускорить дело (Ponaglenie) — сроки всегда короткие
                 a.timeline = "1.5–3 мес.";
             } else {
-                // Строгая вилка: (базовый срок) - (базовый срок + 3)
                 const minWait = urzadOpt.expected_wait;
                 const maxWait = minWait + 3;
                 a.timeline = `${minWait}–${maxWait} мес.`;
@@ -1527,9 +1474,76 @@ function renderFinalResults(analysis, originalScore) {
 
     AnalyzerState.finalPrice = basePrice;
     AnalyzerState.finalTimeline = a.timeline;
-    // =========================================================
 
-    // Генерируем карточку предупреждения, если сработал стоп-фактор
+    // =========================================================
+    // 🚀 ОТПРАВКА ПОЛНОСТЬЮ УПАКОВАННОГО ЛИДА В MAKE.COM
+    // =========================================================
+    const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu';
+
+    let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов (Изначально было: ${originalScore})\n`;
+    if (criticalRiskMessage) {
+        answersLog += `🚨 СРАБОТАЛ СТОП-ФАКТОР: ${criticalRiskMessage}\n`;
+    }
+    answersLog += `-----------------------------------\n\n`;
+    
+    if (AnalyzerState.history && AnalyzerState.history.length > 0) {
+        AnalyzerState.history.forEach((stepId, index) => {
+            const step = FLOW[stepId];
+            if (step && step.type !== 'onboarding' && step.type !== 'lead_gate' && step.question) {
+                let answerText = 'Пропущен';
+                const savedAns = AnalyzerState.answers[stepId];
+                if (savedAns) {
+                    answerText = savedAns.label || savedAns.value || 'Нет данных';
+                }
+                answersLog += `❓ Вопрос ${index}: ${step.question}\n`;
+                answersLog += `👉 Ответ: ${answerText}\n\n`;
+            }
+        });
+    }
+
+    // Упаковываем все вычисленные данные
+    const payload = {
+        name: AnalyzerState.contactInfo.name || 'Без имени',
+        phone: AnalyzerState.contactInfo.phone || 'Без телефона',
+        telegram: AnalyzerState.contactInfo.telegram || '',
+        service: 'Анализатор ВНЖ (AI)', 
+        source: 'analyzer_quiz',       
+        comment: answersLog,
+        submitted_at: new Date().toISOString(),
+
+        analyzer_score: score,
+        analyzer_price: basePrice,       
+        analyzer_timeline: a.timeline,   
+        shared_result: false,        
+        downloaded_pdf: false,
+    };
+
+    // Отправляем в фоне
+    fetch(MAKE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then(res => res.json()).then(data => {
+        AnalyzerState.notionPageId = data.notion_page_id || null;
+        console.log('✅ Анкета улетела в CRM! Page ID:', AnalyzerState.notionPageId);
+    }).catch(err => {
+        console.error('❌ Ошибка отправки аналитики:', err);
+    });
+    
+    // =========================================================
+    // 🎨 ОТРИСОВКА ИНТЕРФЕЙСА (UI)
+    // =========================================================
+    if (progressContainer) {
+        const finalTotal = getDynamicTotalSteps();
+        document.getElementById('progress-fill').style.width = '100%';
+        
+        const stepCurrent = document.getElementById('step-current');
+        const stepTotal = document.getElementById('step-total');
+        
+        if (stepCurrent) stepCurrent.textContent = finalTotal;
+        if (stepTotal) stepTotal.textContent = finalTotal; 
+    }
+
     const criticalHtml = criticalRiskMessage ? `
         <div class="result-card accent-border" style="border-left-color: #EF4444; background-color: rgba(239, 68, 68, 0.05); margin-bottom: 1.5rem;">
             <div class="result-card-header">
@@ -1541,8 +1555,6 @@ function renderFinalResults(analysis, originalScore) {
         </div>
     ` : '';
 
-    // ─── БЛОК ДЕДЛАЙНА ПОДАЧИ ───────────────────────────────
-    // Показываем только если пользователь вводил срок документа
     const deadlineInfo = AnalyzerState.getDeadlineInfo();
     const deadlineHtml = deadlineInfo ? (() => {
         let color, bg, icon, msg;
@@ -1583,7 +1595,6 @@ function renderFinalResults(analysis, originalScore) {
                 </div>
 
                 ${criticalHtml}
-
                 ${deadlineHtml}
 
                 <div class="dash-metrics-ribbon">
@@ -1644,7 +1655,7 @@ function renderFinalResults(analysis, originalScore) {
 
                 <div class="dash-footer">
                     <div class="df-price-col">
-                        <span class="df-price-lbl">Цена сопровождения под ключ вместе со специалистом Residia</span>
+                        <span class="df-price-lbl">Цена сопровождения под ключ</span>
                         <div class="df-price-val" id="price-numbers">
                             <span class="price-current" id="price-current">${basePrice} PLN</span>
                         </div>
@@ -1655,16 +1666,14 @@ function renderFinalResults(analysis, originalScore) {
                             ${isSpeedupPath ? 'Ускорить в Telegram →' : 'Узнать детали в Telegram →'}
                         </a>
                         <button class="btn-outline df-btn-share" id="btn-dash-share">
-                            📤 Поделиться результатом
+                            📤 Поделиться
                         </button>
                         <button class="btn-outline df-btn-pdf" id="btn-dash-pdf">
-                            📄 Скачать PDF с анализом
+                            📄 Скачать PDF
                         </button>
-                        
                     </div>
                 </div>
                 <p class="share-already" id="share-status" style="text-align:center; margin-top:0.5rem;"></p>
-
             </div>
         `;
         
@@ -1673,7 +1682,7 @@ function renderFinalResults(analysis, originalScore) {
         container.classList.add('active');
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // === ВЕШАЕМ НАТИВНЫЙ ШЕРИНГ СРАЗУ ПОСЛЕ ОТРИСОВКИ ===
+        // === ВЕШАЕМ НАТИВНЫЙ ШЕРИНГ ===
         const btnShare = document.getElementById('btn-dash-share');
         if (btnShare) {
             btnShare.addEventListener('click', async () => {
@@ -1682,23 +1691,21 @@ function renderFinalResults(analysis, originalScore) {
                 const shareUrl = window.location.href.split('?')[0];
                 const personalText = `Прошёл(а) анализатор ВНЖ от RESIDIA — результат: ${score}/100, "${scoreTitle}".\nЦель: ${goalLabel}. Срок ожидания: ${a.timeline}.\nПроверь свои шансы: ${shareUrl}`;
 
-                const shareData = {
-                    title: 'Оценка шансов на ВНЖ — RESIDIA',
-                    text: personalText,
-                    url: shareUrl
-                };
+                const shareData = { title: 'Оценка шансов на ВНЖ — RESIDIA', text: personalText, url: shareUrl };
                 
                 try {
-                    if (navigator.share) {
-                        await navigator.share(shareData);
-                    } else {
+                    if (navigator.share) await navigator.share(shareData);
+                    else {
                         await navigator.clipboard.writeText(personalText);
                         const status = document.getElementById('share-status');
-                        if (status) { status.textContent = '✓ Текст скопирован в буфер обмена'; status.style.color = 'var(--accent-color)'; }
+                        if (status) { status.textContent = '✓ Текст скопирован'; status.style.color = 'var(--accent-color)'; }
                     }
 
                     AnalyzerState.sharedResult = true;
-                    fetch('https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu', {
+                    if (typeof fbq === 'function') {
+                        fbq('trackCustom', 'ShareResult');
+                    }
+                    fetch(MAKE_WEBHOOK_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1707,23 +1714,141 @@ function renderFinalResults(analysis, originalScore) {
                             notion_page_id: AnalyzerState.notionPageId,
                             source: 'analyzer_share_event',
                             shared_result: true,
-                            downloaded_pdf: false,
-                            analyzer_price: AnalyzerState.finalPrice,
-                            analyzer_timeline: AnalyzerState.finalTimeline,
+                            downloaded_pdf: AnalyzerState.downloadedPdf,
                             submitted_at: new Date().toISOString()
                         })
                     });
-                    // Скидка как тихий бонус — не акцентируем, просто применяем
                     activateDiscount(basePrice, Math.round(basePrice * 0.9 / 10) * 10);
-
-
-                } catch (err) {
-                    console.log('Пользователь отменил шеринг', err);
-                }
+                } catch (err) { console.log('Шеринг отменен', err); }
             });
         }
-        // ====================================================
 
+        // === КНОПКА ГЕНЕРАЦИИ ФИРМЕННОГО PDF ===
+        const btnPdf = document.getElementById('btn-dash-pdf');
+        if (btnPdf) {
+            btnPdf.addEventListener('click', () => {
+                if (btnPdf.classList.contains('is-loading')) return;
+                
+                const originalText = btnPdf.innerHTML;
+                btnPdf.innerHTML = '⏳ Формируем PDF...';
+                btnPdf.classList.add('is-loading');
+
+                AnalyzerState.downloadedPdf = true;
+                // Отправляем событие в Make о загрузке PDF
+                if (typeof fbq === 'function') {
+                    fbq('trackCustom', 'DownloadPDF');
+                }
+
+                fetch(MAKE_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: AnalyzerState.contactInfo.name,
+                        phone: AnalyzerState.contactInfo.phone,
+                        notion_page_id: AnalyzerState.notionPageId,
+                        source: 'analyzer_pdf_download',
+                        shared_result: AnalyzerState.sharedResult,
+                        downloaded_pdf: true,
+                        submitted_at: new Date().toISOString()
+                    })
+                }).catch(e => console.error(e));
+
+                // Создаем виртуальный макет для PDF (строгие размеры 800px)
+                const pdfContainer = document.createElement('div');
+                pdfContainer.innerHTML = `
+                    <div style="width: 800px; padding: 40px; background: #ffffff; color: #1a1a1a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box;">
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #10B981; padding-bottom: 20px; margin-bottom: 30px;">
+                            <div>
+                                <h2 style="margin: 0; color: #10B981; font-size: 28px; letter-spacing: -1px;">RESIDIA<span style="color:#1a1a1a;">.</span></h2>
+                                <p style="margin: 5px 0 0 0; color: #575F6C; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Migration Analyzer 2.0</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <p style="margin: 0; font-size: 14px; font-weight: bold;">${new Date().toLocaleDateString('ru-RU')}</p>
+                                <p style="margin: 5px 0 0 0; font-size: 14px; color: #575F6C;">Клиент: ${name}</p>
+                            </div>
+                        </div>
+
+                        <h1 style="font-size: 24px; margin-bottom: 10px; color: #1a1a1a;">Персональный юридический разбор</h1>
+                        <p style="font-size: 16px; color: #575F6C; font-style: italic; margin-bottom: 30px; border-left: 3px solid #10B981; padding-left: 15px;">"${a.headline}"</p>
+
+                        <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+                            <div style="flex: 1; background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
+                                <p style="margin: 0 0 5px 0; font-size: 11px; text-transform: uppercase; color: #575F6C; letter-spacing: 0.5px;">Итоговый балл</p>
+                                <p style="margin: 0; font-size: 32px; font-weight: bold; color: ${score >= 75 ? '#10B981' : score >= 50 ? '#f59e0b' : '#ef4444'};">${score}/100</p>
+                            </div>
+                            <div style="flex: 1; background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
+                                <p style="margin: 0 0 5px 0; font-size: 11px; text-transform: uppercase; color: #575F6C; letter-spacing: 0.5px;">Риск отказа</p>
+                                <p style="margin: 0; font-size: 20px; font-weight: bold;">${a.refusal_probability}</p>
+                            </div>
+                            <div style="flex: 1; background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
+                                <p style="margin: 0 0 5px 0; font-size: 11px; text-transform: uppercase; color: #575F6C; letter-spacing: 0.5px;">Сроки ожидания</p>
+                                <p style="margin: 0; font-size: 20px; font-weight: bold; color: #10B981;">${a.timeline}</p>
+                            </div>
+                        </div>
+
+                        ${criticalRiskMessage ? `
+                        <div style="background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; padding: 15px 20px; margin-bottom: 30px; border-radius: 4px;">
+                            <p style="margin: 0 0 5px 0; color: #ef4444; font-weight: bold; font-size: 14px;">🚨 Критический риск</p>
+                            <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 1.5;">${criticalRiskMessage}</p>
+                        </div>` : ''}
+
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="font-size: 15px; text-transform: uppercase; color: #10B981; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px;">Резюме и стратегия</h3>
+                            <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.5;"><strong>Вердикт:</strong> ${a.overall_verdict}</p>
+                            <p style="margin: 0; font-size: 14px; line-height: 1.5;"><strong>Основание:</strong> ${a.main_basis}</p>
+                        </div>
+
+                        <div style="display: flex; gap: 30px; margin-bottom: 30px;">
+                            <div style="flex: 1;">
+                                <h3 style="font-size: 14px; color: #10B981; margin-bottom: 10px;">✅ Сильные стороны</h3>
+                                <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #333;">
+                                    ${a.strengths.map(s => `<li style="margin-bottom: 5px;">${s}</li>`).join('')}
+                                </ul>
+                            </div>
+                            <div style="flex: 1;">
+                                <h3 style="font-size: 14px; color: #ef4444; margin-bottom: 10px;">⚠️ Зоны риска</h3>
+                                <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #333;">
+                                    ${a.critical_issues.map(i => `<li style="margin-bottom: 5px;">${i}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="font-size: 15px; text-transform: uppercase; color: #10B981; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px;">Первоочередные действия</h3>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6; color: #1a1a1a;">
+                                ${a.urgent_actions.map(action => `<li style="margin-bottom: 5px;">${action}</li>`).join('')}
+                            </ul>
+                        </div>
+
+                        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+                            <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold; color: #1a1a1a;">RESIDIA Consulting</p>
+                            <p style="margin: 0; font-size: 12px; color: #575F6C;">Связь с экспертом: +48 571 528 293 | Telegram: @residia_consulting</p>
+                        </div>
+                    </div>
+                `;
+
+                const opt = {
+                    margin:       0,
+                    filename:     `Residia_Analysis_${name.replace(/\s+/g, '_')}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true },
+                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+
+                html2pdf().set(opt).from(pdfContainer.firstElementChild).save().then(() => {
+                    btnPdf.innerHTML = '✓ PDF скачан';
+                    btnPdf.style.borderColor = 'var(--accent-color)';
+                    btnPdf.style.color = 'var(--accent-color)';
+                    btnPdf.classList.remove('is-loading');
+                    
+                    setTimeout(() => {
+                        btnPdf.innerHTML = originalText;
+                        btnPdf.style = '';
+                    }, 3000);
+                });
+            });
+        }
     }, 300);
 }
 
@@ -2311,7 +2436,7 @@ document.addEventListener('DOMContentLoaded', () => {
             questionContainer.classList.remove('hidden');
             
             // СТАРТУЕМ С ВОЕВОДСТВА ВМЕСТО MAIN_GOAL
-            renderStep('urzad_location'); 
+            renderStep('main_goal'); 
         });
     }
 });
