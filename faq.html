@@ -448,5 +448,25 @@
             });
         });
     </script>
+    <div class="fab-wrapper" id="fab-wrapper">
+    <div class="fab-menu">
+        <a href="tel:+48571528293" class="fab-action" style="--delay: 0.25s;" aria-label="Viber"><svg ...></svg></a>
+        <a href="https://t.me/residia_consulting" class="fab-action" style="--delay: 0.15s;" aria-label="Telegram"><svg ...></svg></a>
+        <a href="https://www.instagram.com/residia.consulting/" class="fab-action" style="--delay: 0.05s;" aria-label="Instagram"><svg ...></svg></a>
+    </div>
+    <button class="fab-toggle" id="fab-toggle" aria-label="Контакты">
+        <span class="fab-icon-question">?</span>
+        <span class="fab-icon-close">✕</span>
+    </button>
+</div>
+
+<button id="open-modal-fab" class="fab-chat-btn" aria-label="Открыть форму заявки">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+</button>
+
+<div id="callback-modal" class="modal-overlay hidden">
+    </div>
 </body>
 </html>
