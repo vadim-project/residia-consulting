@@ -7,38 +7,36 @@
 
 const AnalyzerState = {
     currentStepId: null,
-    answers: {},            // { questionId: { value, label, delta } }
+    answers: {},            
     history: [],       
-    sharedResult: false,     // нажал ли кнопку «Поделиться»
-    downloadedPdf: false,     // stack of step IDs for back navigation
-    contactInfo: {},        // { name, phone, telegram }
-    redFlags: [],           // accumulate detected red flags
-    docExpiryDays: null,    // число дней до истечения документа (виза / карта)
+    downloadedPdf: false,     
+    contactInfo: {},        
+    redFlags: [],           
+    docExpiryDays: null,    
     score: {
-        overall: 100,       // starts at 100, deductions applied
-        risk: 0,            // 0–30
-        documentReadiness: 100,
-        stabilityScore: 100,
-        immigrationTrust: 100,
-        employerReliability: 100,
-        residenceContinuity: 100,
-        incomeQuality: 100
+        overall: 60,        
+        risk: 0,            
+        documentReadiness: 50,  
+        stabilityScore: 60,
+        immigrationTrust: 60,
+        employerReliability: 60,
+        residenceContinuity: 60,
+        incomeQuality: 50   
     },
-    conversationHistory: [],  // for AI multi-turn
-    aiMode: false,            // true when we hand off to AI deep dive
+    conversationHistory: [],  
+    aiMode: false,            
 
     reset() {
         this.currentStepId = null;
         this.answers = {};
         this.history = [];
-        this.sharedResult = false;
         this.downloadedPdf = false;
         this.contactInfo = {};
         this.redFlags = [];
         this.docExpiryDays = null;
-        this.score = { overall: 100, risk: 0, documentReadiness: 100,
-            stabilityScore: 100, immigrationTrust: 100, employerReliability: 100,
-            residenceContinuity: 100, incomeQuality: 100 };
+        this.score = { overall: 60, risk: 0, documentReadiness: 50,
+            stabilityScore: 60, immigrationTrust: 60, employerReliability: 60,
+            residenceContinuity: 60, incomeQuality: 50 };
         this.conversationHistory = [];
         this.aiMode = false;
         this.notionPageId = null;
@@ -57,7 +55,6 @@ const AnalyzerState = {
         if (scoringObj.redFlag)             this.redFlags.push(scoringObj.redFlag);
     },
 
-    // БАГ-ФИX: сохраняем дельту вместе с ответом, чтобы корректно откатить при нажатии «Назад»
     addAnswer(questionId, valueId, label, scoring) {
         const delta = {
             overall:             scoring?.overall             || 0,
@@ -74,7 +71,6 @@ const AnalyzerState = {
         this.applyScoring(scoring);
     },
 
-    // Откатывает дельту конкретного ответа и удаляет его из answers
     rollbackAnswer(questionId) {
         const ans = this.answers[questionId];
         if (!ans) return;
@@ -96,11 +92,9 @@ const AnalyzerState = {
         delete this.answers[questionId];
     },
 
-    // Рассчитывает дедлайн подачи по оставшимся дням документа
     getDeadlineInfo() {
         const days = this.docExpiryDays;
         if (!days || days <= 0) return null;
-        // Рекомендуем подавать за 14 дней до истечения
         const submitByDate = new Date();
         submitByDate.setDate(submitByDate.getDate() + days - 14);
         const formatted = submitByDate.toLocaleDateString('ru-RU', {
@@ -121,8 +115,6 @@ const AnalyzerState = {
         const avg = subscores.reduce((a, b) => a + b, 0) / subscores.length;
         let finalScore = Math.max(0, Math.min(100, Math.round((s.overall * 0.4) + (avg * 0.6))));
 
-        // === ПРИМЕНЯЕМ СТОП-ФАКТОРЫ ГЛОБАЛЬНО ===
-        // Теперь и Lead Gate, и Webhook, и финальный экран будут видеть правильную цифру
         const answers = this.answers;
         const goal = answers['main_goal']?.value;
         const contract = answers['work_contract_type']?.value;
@@ -137,16 +129,20 @@ const AnalyzerState = {
             finalScore = Math.min(finalScore, 10);
         }
 
+        if (answers['previous_refusals']?.value === 'hist_deportation') {
+            finalScore = Math.min(finalScore, 8);
+        }
+        if (answers['criminal_check']?.value === 'crim_serious') {
+            finalScore = Math.min(finalScore, 12);
+        }
+
         return finalScore;
     }
 };
 
 // ─── 2. STATIC DECISION TREE ────────────────────────────────
-// Deep branching with 30+ nodes covering all major paths
 
 const FLOW = {
-
-    // ── ENTRY ──────────────────────────────────────────────
 
     main_goal: {
         question: "Что именно вас интересует?",
@@ -159,9 +155,6 @@ const FLOW = {
             { id: "goal_speedup", label: "Ускорение вашего дела", next: "urzad_location", scoring: { stabilityScore: +10 } },
         ]
     },
-
-
-// ── ВЕТКА: ВОССОЕДИНЕНИЕ СЕМЬИ (FAMILY REUNIFICATION) ─────────────────
 
     fam_relative_work: {
         question: "Работает ли официально член семьи, к которому вы переезжаете?",
@@ -201,9 +194,6 @@ const FLOW = {
         placeholder: "Например: 6000",
         next: "lead_gate"
     },
-
-    // ── ВЕТКА: КАРТА CUKR (UKR TEMPORARY PROTECTION) ─────────────────
-
 
     cukr_pesel: {
         question: "Каков статус вашего PESEL UKR на сегодняшний день?",
@@ -247,8 +237,6 @@ const FLOW = {
         ]
     },
 
-    // ── ВЕТКА: ПОДАЧА ПО РАБОТЕ (KARTA POBYTU PRACA) ─────────────────
-
     work_contract_type: {
         question: "По какому типу договора вы работаете?",
         subtitle: "Тип договора напрямую влияет на стабильность кейса и требования к документам.",
@@ -256,7 +244,7 @@ const FLOW = {
         options: [
             { id: "w_umowa_prace", label: "💼 Umowa o pracę (Трудовой договор)", next: "work_salary", scoring: { incomeQuality: +20, stabilityScore: +10 } },
             { id: "w_umowa_zlecenie", label: "📋 Umowa Zlecenie (Договор подряда)", next: "work_salary", scoring: { incomeQuality: +5 } },
-            { id: "w_b2b_jdg", label: "🏢 B2B контракт (своё ИП / JDG)", next: "jdg_path", scoring: { incomeQuality: +10 } }, // Эта кнопка умно перекинет юзера на уже существующую ветку бизнеса
+            { id: "w_b2b_jdg", label: "🏢 B2B контракт (своё ИП / JDG)", next: "jdg_path", scoring: { incomeQuality: +10 } }, 
             { id: "w_agency", label: "🏭 Работаю через агенцию (Agencja Pracy)", next: "work_salary", scoring: { employerReliability: -15, risk: +3, redFlag: "Работа через агенцию требует дополнительных договоров (umowa outsourcingowa), что усложняет проверку ужондом." } },
             { id: "w_no_contract", label: "❌ Пока нет договора / Ищу работу", next: "work_legal_status", scoring: { overall: -20, incomeQuality: -30, risk: +5, redFlag: "Для подачи по работе необходимо иметь активный договор." } }
         ]
@@ -307,8 +295,6 @@ const FLOW = {
         ]
     },
 
-    // ── ВЕТКА: УСКОРЕНИЕ ДЕЛА (PONAGLENIE) ─────────────────
-    
    urzad_location: {
         question: "В какой воеводский ужонд подано ваше дело?",
         type: "options",
@@ -375,7 +361,6 @@ const FLOW = {
         ]
     },
 
-    // ── UKR-SPECIFIC ───────────────────────────────────────
     ukr_status: {
         question: "Вы находитесь в Польше по статусу временной защиты (UKR)?",
         subtitle: "Это определяет, можете ли вы подать на CUKR или обычный pobyt.",
@@ -399,9 +384,6 @@ const FLOW = {
         ]
     },
 
-    // ── СРОК ДОКУМЕНТА (ВИЗА / КАРТА ПОБЫТУ) ──────────────────
-    // Вставляется между stay_basis и employment_basis для визы и карты
-
     doc_expiry_days: {
         question: "Сколько дней осталось до истечения вашего документа?",
         subtitle: "Введите точное количество дней. Система рассчитает крайний срок подачи и предупредит о рисках.",
@@ -410,7 +392,6 @@ const FLOW = {
         next: "employment_basis"
     },
 
-    // ── GENERAL STAY BASIS ─────────────────────────────────
     stay_basis: {
         question: "На каком основании вы сейчас находитесь в Польше?",
         subtitle: "Ваш текущий правовой статус — ключевой параметр оценки.",
@@ -426,7 +407,6 @@ const FLOW = {
         ]
     },
 
-    // ── PESEL / MELDUNEK ───────────────────────────────────
     pesel_status: {
         question: "Есть ли у вас PESEL и meldуnek (регистрация по адресу)?",
         type: "options",
@@ -437,7 +417,6 @@ const FLOW = {
         ]
     },
 
-    // ── VISA / BEZWIZ DETAILS ──────────────────────────────
     visa_expiry: {
         question: "Когда истекает ваша виза?",
         type: "options",
@@ -503,7 +482,6 @@ const FLOW = {
         ]
     },
 
-    // ── EMPLOYMENT PATH ────────────────────────────────────
     employment_basis: {
         question: "Какой у вас основной источник дохода / тип занятости в Польше?",
         subtitle: "Это определяет тип подаваемого разрешения и требования к документам.",
@@ -520,7 +498,6 @@ const FLOW = {
         ]
     },
 
-    // ── EMPLOYER CHECK (for umowa) ────────────────────────
     employer_check: {
         question: "Расскажите о вашем работодателе:",
         type: "options",
@@ -555,7 +532,6 @@ const FLOW = {
         ]
     },
 
-    // ── BLUE CARD PATH ─────────────────────────────────────
     blue_card_path: {
         question: "Параметры для Blue Card (EU):",
         subtitle: "Blue Card требует зарплату ≥ 150% средней по Польше (~10 500 PLN brutto в 2026).",
@@ -567,7 +543,6 @@ const FLOW = {
         ]
     },
 
-    // ── JDG PATH ──────────────────────────────────────────
     jdg_path: {
         question: "Детали вашего бизнеса (JDG / Sp. z o.o.):",
         type: "options",
@@ -589,7 +564,6 @@ const FLOW = {
         ]
     },
 
-    // ── STUDY PATH ─────────────────────────────────────────
     study_details: {
         question: "Детали вашего обучения в Польше:",
         type: "options",
@@ -610,7 +584,6 @@ const FLOW = {
         ]
     },
 
-    // ── FAMILY PATH ────────────────────────────────────────
     family_path: {
         question: "На каком семейном основании?",
         type: "options",
@@ -634,7 +607,6 @@ const FLOW = {
         ]
     },
 
-    // ── EU CITIZENS ────────────────────────────────────────
     eu_path: {
         question: "Вы гражданин ЕС — ваш путь значительно проще.",
         subtitle: "Для граждан ЕС доступна упрощённая регистрация без karta pobytu.",
@@ -645,7 +617,6 @@ const FLOW = {
         ]
     },
 
-    // ── NO INCOME PATH ─────────────────────────────────────
     no_income_path: {
         question: "Есть ли у вас другие подтверждённые источники средств к существованию?",
         type: "options",
@@ -656,7 +627,6 @@ const FLOW = {
         ]
     },
 
-    // ── PREVIOUS REFUSALS & HISTORY ────────────────────────
     previous_refusals: {
         question: "Была ли у вас когда-либо история отказов или нарушений в Польше / ЕС?",
         type: "options",
@@ -690,7 +660,6 @@ const FLOW = {
         ]
     },
 
-    // ── RESIDENCE CONTINUITY ──────────────────────────────
     residence_continuity: {
         question: "Как долго вы непрерывно проживаете в Польше?",
         subtitle: "Непрерывность пребывания критически важна для долгосрочных видов на жительство.",
@@ -704,7 +673,6 @@ const FLOW = {
         ]
     },
 
-    // ── FAMILY SITUATION ──────────────────────────────────
     family_situation: {
         question: "Семейная ситуация при подаче:",
         type: "options",
@@ -716,25 +684,22 @@ const FLOW = {
         ]
     },
 
-    // ── LEAD GATE ─────────────────────────────────────────
     lead_gate: {
         type: "lead_gate",
         question: "Анализ готов на 95%",
         subtitle: "Введите ваши контакты, чтобы получить полный персональный отчёт с рекомендациями."
     },
 
-    // ── AI DEEP DIVE (after lead gate) ───────────────────
     ai_analysis: {
         type: "ai_result"
     }
 };
 
 // ─── 3. PROGRESS TRACKER ────────────────────────────────────
-// === УМНЫЙ КАЛЬКУЛЯТОР ШАГОВ ===
-// === УМНЫЙ КАЛЬКУЛЯТОР ШАГОВ ===
+
 function getDynamicTotalSteps() {
     const answers = AnalyzerState.answers;
-    let total = 8; // Базовое значение (было 7, добавили +1 за воеводство)
+    let total = 8; 
 
     if (answers['main_goal']) {
         const goal = answers['main_goal'].value;
@@ -742,16 +707,15 @@ function getDynamicTotalSteps() {
         else if (goal === 'goal_cukr') total = 7;
         else if (goal === 'goal_family') total = 7;
         else if (goal === 'goal_work') {
-            total = 8; // Стандартная длина по работе
+            total = 8; 
             if (answers['work_contract_type']) {
                 const contract = answers['work_contract_type'].value;
-                if (contract === 'w_no_contract') total = 5; // Короткий путь
-                else if (contract === 'w_b2b_jdg') total = 7; // Путь через ИП
+                if (contract === 'w_no_contract') total = 5; 
+                else if (contract === 'w_b2b_jdg') total = 7; 
             }
         }
     }
     
-    // ПРЕДОХРАНИТЕЛЬ: Если реальная история длиннее предсказания — расширяем лимит
     const actualSteps = Math.max(AnalyzerState.history.length, 1);
     return Math.max(total, actualSteps);
 }
@@ -786,21 +750,19 @@ function renderStep(stepId) {
     container.classList.remove('active');
     container.classList.add('hidden');
 
-    // === УМНЫЙ ПРОГРЕСС-БАР ===
     if (step.type === 'lead_gate') {
         const progressFill = document.getElementById('progress-fill');
         const stepCurrent = document.getElementById('step-current');
-        const stepTotal = document.getElementById('step-total'); // <-- Находим правую цифру
+        const stepTotal = document.getElementById('step-total'); 
         
         const total = getDynamicTotalSteps();
         
         if (progressFill) progressFill.style.width = '95%';
         if (stepCurrent) stepCurrent.textContent = total; 
-        if (stepTotal) stepTotal.textContent = total; // <-- Обновляем правую цифру
+        if (stepTotal) stepTotal.textContent = total; 
     } else if (step.type !== 'ai_result') {
         updateProgress(AnalyzerState.history.length - 1);
     }
-    // ==========================
 
     setTimeout(() => {
         if (step.type === 'lead_gate') {
@@ -808,6 +770,7 @@ function renderStep(stepId) {
             bindLeadGateEvents();
         } else if (step.type === 'ai_result') {
             container.innerHTML = buildLoadingScreen();
+            animateLoadingSteps();
             runAIAnalysis();
         } else if (step.type === 'input_number') {
             container.innerHTML = buildInputStep(step, stepId);
@@ -854,15 +817,12 @@ function bindOptionButtons(stepId) {
 
             AnalyzerState.addAnswer(stepId, optionId, label, selectedOpt.scoring);
 
-            // Подсветка кнопки
             document.querySelectorAll('.analyzer-option-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
 
-            // === УМНЫЙ РОУТИНГ ПОСЛЕ ВОЕВОДСТВА ===
             let nextStep = selectedOpt.next;
             
             if (stepId === 'urzad_location') {
-                // Смотрим, что клиент выбрал на самом первом шаге
                 const goal = AnalyzerState.answers['main_goal']?.value;
                 if (goal === 'goal_work') nextStep = 'work_contract_type';
                 else if (goal === 'goal_cukr') nextStep = 'cukr_pesel';
@@ -880,7 +840,6 @@ function bindOptionButtons(stepId) {
             AnalyzerState.history.pop(); 
             const prev = AnalyzerState.history.pop(); 
             
-            // БАГ-ФИX: откатываем скоринг через rollbackAnswer
             AnalyzerState.rollbackAnswer(prev); 
             
             if (prev) renderStep(prev);
@@ -920,9 +879,8 @@ function bindInputButton(stepId) {
         
         input.style.borderColor = 'var(--border-color)';
         let warningText = "";
-        let displayTime = 4000; // Время показа сообщения по умолчанию
+        let displayTime = 4000; 
         
-        // 1. ЛОГИКА ДЛЯ ВЕТКИ ПОНАГЛЕНИЙ
         if (stepId === 'waiting_time_input') {
             const urzadId = AnalyzerState.answers['urzad_location']?.value;
             const urzadOpt = FLOW['urzad_location'].options.find(o => o.id === urzadId);
@@ -944,21 +902,17 @@ function bindInputButton(stepId) {
             }
         }
         
-        // 2. ЛОГИКА ДЛЯ СЕМЕЙНОГО СЧЕТЧИКА КОЛИЧЕСТВА ЛЮДЕЙ
         else if (stepId === 'fam_count_input') {
             alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
             alertBox.style.color = 'var(--text-color)';
             alertBox.style.borderColor = 'var(--accent-color)';
             warningText = `✓ Данные зафиксированы. Переходим к расчету финансового критерия...`;
-            displayTime = 1000; // Быстрый переход для этого шага
+            displayTime = 1000; 
         }
         
-        // 3. ФОРМУЛА РАСЧЕТА ДОХОДА И ЖИЛЬЯ
         else if (stepId === 'fam_income_input') {
             const famCount = parseInt(AnalyzerState.answers['fam_count_input']?.value || 0);
-            const totalFamilySize = 1 + famCount; // Семья = Принимающий родственник + приглашенные
-            
-            // Формула: 600 PLN минимум на жизнь + 700 PLN фикс на жилье = 1300 PLN на человека
+            const totalFamilySize = 1 + famCount; 
             const requiredIncome = totalFamilySize * 1300;
             
             if (val >= requiredIncome) {
@@ -977,9 +931,7 @@ function bindInputButton(stepId) {
             }
         }
 
-        // 4. СРОК ДО ИСТЕЧЕНИЯ ДОКУМЕНТА — новая фича
         else if (stepId === 'doc_expiry_days') {
-            // Сохраняем количество дней в state для вычисления дедлайна в результатах
             AnalyzerState.docExpiryDays = val;
 
             if (val <= 14) {
@@ -1010,7 +962,6 @@ function bindInputButton(stepId) {
             displayTime = 2200;
         }
         
-        // Записываем ответ в глобальное состояние
         let inputLabel = `${val}`;
         if (stepId === 'fam_income_input') inputLabel = `${val} PLN`;
         else if (stepId === 'fam_count_input') inputLabel = `${val} чел.`;
@@ -1018,7 +969,6 @@ function bindInputButton(stepId) {
         else if (stepId === 'doc_expiry_days') inputLabel = `${val} дней`;
         AnalyzerState.answers[stepId] = { value: val, label: inputLabel };
         
-        // Выводим плашку с расчетами
         alertBox.innerHTML = warningText;
         alertBox.classList.remove('hidden');
         btnNext.style.display = 'none'; 
@@ -1029,14 +979,12 @@ function bindInputButton(stepId) {
         }, displayTime);
     });
 
-    // Кнопка Назад
     const backBtn = document.getElementById('btn-back');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
             AnalyzerState.history.pop(); 
             const prev = AnalyzerState.history.pop(); 
             
-            // БАГ-ФИX: откатываем скоринг через rollbackAnswer, а не просто delete
             AnalyzerState.rollbackAnswer(prev);
             
             if (prev) renderStep(prev);
@@ -1047,7 +995,6 @@ function bindInputButton(stepId) {
 function buildLeadGate() {
     const score = AnalyzerState.getFinalScore();
     const riskCount = AnalyzerState.redFlags.length;
-    // Подтягиваем воеводство для персонализации текста
     const urzad = AnalyzerState.answers['urzad_location']?.label || 'вашем воеводстве';
 
     return `
@@ -1067,7 +1014,6 @@ function buildLeadGate() {
                 </div>
             </div>
 
-            <!-- БЛОК ДОВЕРИЯ С АКЦЕНТОМ НА МГНОВЕННУЮ ВЫДАЧУ -->
             <div class="lead-gate-benefits" style="background: var(--bg-color); padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem; text-align: left; border-left: 3px solid var(--accent-color);">
                 <p style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Оставьте контакты, чтобы <span style="color: var(--accent-color);">моментально открыть</span> на следующем экране:</p>
                 <ul style="font-size: 0.85rem; color: var(--text-muted); padding-left: 1.2rem; margin-bottom: 0.8rem;">
@@ -1095,7 +1041,6 @@ function buildLeadGate() {
                     <input type="text" id="an-telegram" placeholder="@username">
                 </div>
                 
-                <!-- ГАРАНТИЯ БЕЗОПАСНОСТИ С ОБЪЯСНЕНИЕМ -->
                 <p class="lead-privacy-note" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.5rem;">
                     <span style="font-size: 1rem; color: var(--accent-color);">🔒</span>
                     <span>Мы гарантируем конфиденциальность. <b>Результат откроется сразу на этой странице.</b> Контакты нужны для отправки копии отчета и на случай, если вам понадобится помощь специалиста.</span>
@@ -1108,10 +1053,6 @@ function buildLeadGate() {
         </div>
     `;
 }
-
-
-// Builds the richest possible payload for Notion via Mak
-
 
 function bindLeadGateEvents() {
     const form = document.getElementById('analyzer-lead-form');
@@ -1136,7 +1077,6 @@ function bindLeadGateEvents() {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Генерируем ваш отчёт…';
 
-        // Отправляем событие Лид в Facebook Pixel
         if (typeof fbq === 'function') {
             fbq('track', 'Lead', { content_name: 'Analyzer Completed' });
         }
@@ -1177,255 +1117,57 @@ function animateLoadingSteps() {
     }, 1800);
 }
 
-async function runAIAnalysis() {
-    animateLoadingSteps();
-
+function runAIAnalysis() {
     const score = AnalyzerState.getFinalScore();
-    const answersText = Object.entries(AnalyzerState.answers)
-        .map(([k, v]) => `${k}: ${v.label}`)
-        .join('\n');
-    const redFlagsText = AnalyzerState.redFlags.length > 0
-        ? AnalyzerState.redFlags.join('\n')
-        : 'Красных флагов не обнаружено';
-
-    const subscores = AnalyzerState.score;
-
-    const systemPrompt = `Ты — старший юрист-эксперт по миграционному праву Польши с 15-летним опытом. 
-Твоя задача — на основании анкеты клиента сформировать персональный юридический экспресс-анализ кейса на получение karta pobytu / ВНЖ в Польше.
-
-Формат ответа: строго JSON (без markdown, без \`\`\`). Структура:
-{
-  "headline": "Одна фраза-вердикт о кейсе (до 15 слов)",
-  "overall_verdict": "2-3 предложения общей оценки ситуации клиента",
-  "main_basis": "Рекомендуемое основание для подачи (1-2 предложения)",
-  "alternative_bases": ["альтернатива 1", "альтернатива 2"],
-  "strengths": ["плюс 1", "плюс 2", "плюс 3"],
-  "critical_issues": ["проблема 1", "проблема 2"],
-  "urgent_actions": ["срочное действие 1", "срочное действие 2", "срочное действие 3"],
-  "wezwanie_probability": "Низкая / Средняя / Высокая",
-  "refusal_probability": "Низкая / Средняя / Высокая",
-  "timeline": "Ориентировочные сроки получения решения",
-  "doc_checklist": ["документ 1", "документ 2", "документ 3", "документ 4", "документ 5"],
-  "closing_advice": "1-2 предложения финального совета"
-}`;
-
-    const userPrompt = `Вот данные анкеты клиента RESIDIA Consulting:
-
-ОТВЕТЫ КЛИЕНТА:
-${answersText}
-
-ОЦЕНКИ СИСТЕМЫ:
-- Итоговый скор: ${score}/100
-- Уровень риска: ${subscores.risk}/30
-- Готовность документов: ${subscores.documentReadiness}/100
-- Стабильность: ${subscores.stabilityScore}/100
-- Доверие ужонда: ${subscores.immigrationTrust}/100
-- Надёжность работодателя: ${subscores.employerReliability}/100
-- Непрерывность пребывания: ${subscores.residenceContinuity}/100
-- Качество дохода: ${subscores.incomeQuality}/100
-
-ВЫЯВЛЕННЫЕ КРАСНЫЕ ФЛАГИ:
-${redFlagsText}
-
-Имя клиента: ${AnalyzerState.contactInfo.name || 'клиент'}
-
-Сформируй персональный юридический анализ. Будь конкретным, используй реальные юридические термины польского миграционного права (karta pobytu, decyzja, wezwanie, odmowa, straż graniczna, ZUS, US, PESEL, meldunek, pobyt stały, CUKR и т.д.). Тон: профессиональный, эмпатичный, без агрессивных продаж, но с чёткой рекомендацией обратиться к специалисту по сложным вопросам.`;
-
-    try {
-        const deadlineForPrompt = AnalyzerState.getDeadlineInfo();
-        const deadlineNote = deadlineForPrompt
-            ? `\nСРОК ДОКУМЕНТА: До истечения ${deadlineForPrompt.daysLeft} дней. Рекомендуемый крайний срок подачи: ${deadlineForPrompt.submitBy}.${deadlineForPrompt.isUrgent ? ' ВАЖНО: первым пунктом urgent_actions укажи срочность подачи из-за истекающего документа.' : ''}`
-            : '';
-
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                model: "claude-sonnet-4-20250514",
-                max_tokens: 1800,
-                system: systemPrompt,
-                messages: [
-                    { role: "user", content: userPrompt + deadlineNote }
-                ]
-            })
-        });
-
-        const data = await response.json();
-        const rawText = data.content.map(b => b.text || '').join('');
-
-        let analysis;
-        try {
-            const clean = rawText.replace(/```json|```/g, '').trim();
-            analysis = JSON.parse(clean);
-        } catch {
-            analysis = null;
-        }
-
-        renderFinalResults(analysis, score);
-
-    } catch (err) {
-        console.error('AI Error:', err);
+    setTimeout(() => {
         renderFinalResults(null, score);
-    }
+    }, 4 * 1800 + 400);
 }
 
 // ─── 7. RESULTS SCREEN ────────────────────────────────────
 
-// Price calculation based on case complexity
-function calcPrice(score, redFlagsCount) {
-    let base = 1150;
-    // Complexity surcharges
-    if (score < 50)          base += 500;   // critical case
-    else if (score < 65)     base += 300;   // high complexity
-    else if (score < 80)     base += 150;   // medium complexity
-    if (redFlagsCount >= 3)  base += 300;   // many red flags
-    else if (redFlagsCount >= 1) base += 100;
-    // Family surcharge
-    const famAnswer = AnalyzerState.answers['family_situation'];
-    if (famAnswer && (famAnswer.value === 'fam_with_kids' || famAnswer.value === 'fam_full')) base += 400;
-    else if (famAnswer && famAnswer.value === 'fam_with_spouse') base += 250;
-    // Business / Blue Card surcharge
-    const empAnswer = AnalyzerState.answers['employment_basis'];
-    if (empAnswer && (empAnswer.value === 'emp_jdg' || empAnswer.value === 'emp_sp_zoo' || empAnswer.value === 'emp_blue_card')) base += 300;
-    return base;
+// ── Цены жёстко зафиксированы по требованию ──
+//   • Карта побыта (стандарт): 1300 PLN  (300 PLN аванс + 1000 PLN после подачи)
+//   • Ускорение (goal_speedup): 500 PLN  (только ускорение — Ponaglenie)
+function calcPrice(score, redFlagsCount, isSpeedupPath) {
+    return isSpeedupPath ? 500 : 1300;
 }
 
-function buildPriceBlock(basePrice) {
-    const discountPrice = Math.round(basePrice * 0.9 / 10) * 10; // -10%, rounded to 10
-    const isComplex = basePrice > 1150;
-
-    return `
-        <div class="price-block" id="price-block">
-            <div class="price-block-top">
-                <div class="price-label-col">
-                    <span class="price-block-title">Стоимость сопровождения</span>
-                    <span class="price-block-sub">Оплата — после подачи документов</span>
-                </div>
-                <div class="price-numbers" id="price-numbers">
-                    <span class="price-current" id="price-current">${basePrice} PLN</span>
-                </div>
-            </div>
-            ${isComplex ? `<p class="price-complexity-note">⚠️ Стоимость выше базовой (1 150 PLN) из-за сложности вашего кейса. Точная сумма фиксируется на консультации.</p>` : ''}
-            <div class="price-payment-note">
-                <span class="price-payment-icon">✓</span>
-                Оплата производится только после подачи всех документов в ужонд — вы ничем не рискуете до результата.
-            </div>
-        </div>
-    `;
-}
-
-function buildShareBlock(basePrice) {
-    const discountPrice = Math.round(basePrice * 0.9 / 10) * 10;
-    const shareUrl = encodeURIComponent(window.location.href.split('?')[0]);
-    const shareText = encodeURIComponent('Проверил(а) свои шансы на ВНЖ в Польше через анализатор RESIDIA — рекомендую пройти! 🇵🇱');
-
-    return `
-        <div class="share-block" id="share-block">
-            <div class="share-block-inner">
-                <div class="share-discount-badge">−10% скидка</div>
-                <h3 class="share-title">Поделитесь анализатором — получите скидку</h3>
-                <p class="share-desc">Отправьте ссылку другу или опубликуйте в соцсетях. После того как вы поделитесь — цена обновится прямо здесь.</p>
-                <div class="share-buttons">
-                    <button class="share-btn share-btn-tg" onclick="handleShare('telegram', ${basePrice}, ${discountPrice}, 'https://t.me/share/url?url=${shareUrl}&text=${shareText}')">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.018 9.51c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 14.338l-2.95-.924c-.642-.204-.654-.642.136-.95l11.526-4.446c.535-.194 1.003.13.68.23z"/></svg>
-                        Telegram
-                    </button>
-                    <button class="share-btn share-btn-wa" onclick="handleShare('whatsapp', ${basePrice}, ${discountPrice}, 'https://wa.me/?text=${shareText}%20${shareUrl}')">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.559 4.121 1.535 5.854L.057 23.5l5.797-1.521A11.935 11.935 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.878 9.878 0 01-5.036-1.378l-.361-.214-3.741.981.999-3.648-.235-.374A9.855 9.855 0 012.105 12C2.105 6.59 6.59 2.105 12 2.105S21.895 6.59 21.895 12 17.41 21.895 12 21.895z"/></svg>
-                        WhatsApp
-                    </button>
-                    <button class="share-btn share-btn-copy" onclick="handleShare('copy', ${basePrice}, ${discountPrice}, '')">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                        Скопировать ссылку
-                    </button>
-                </div>
-                <p class="share-already" id="share-status"></p>
-            </div>
-        </div>
-    `;
-}
-
-function handleShare(method, basePrice, discountPrice, url) {
-    if (method === 'telegram' || method === 'whatsapp') {
-        window.open(url, '_blank');
-    } else if (method === 'copy') {
-        navigator.clipboard.writeText(window.location.href.split('?')[0]).catch(() => {});
-    }
-    // Activate discount after sharing
-    activateDiscount(basePrice, discountPrice);
-}
-
-function activateDiscount(basePrice, discountPrice) {
-    const priceNumbers = document.getElementById('price-numbers');
-    const shareStatus = document.getElementById('share-status');
-    const shareBtn = document.getElementById('btn-dash-share');
-
-    // Защита от двойного клика
-    if (!priceNumbers || priceNumbers.dataset.discounted === 'true') return;
-    priceNumbers.dataset.discounted = 'true';
-
-    // Зачеркиваем старую цену и пишем новую зеленую (через inline-стили для надежности)
-    priceNumbers.innerHTML = `
-        <span style="text-decoration: line-through; color: var(--text-muted); font-size: 1.2rem; margin-right: 8px;">${basePrice}</span>
-        <span style="color: var(--accent-color);">${discountPrice} PLN</span>
-    `;
-
-    // Выводим сообщение о промокоде
-    if (shareStatus) {
-        shareStatus.innerHTML = '✓ Скидка 10% успешно применена! Промокод: <strong>SHARE10</strong>';
-        shareStatus.style.color = 'var(--accent-color)';
-    }
-    
-    // Прячем кнопку шеринга, раз скидка уже получена
-    if (shareBtn) {
-        shareBtn.style.display = 'none';
-    }
-}
+// ВНИМАНИЕ: функции handleShare() и activateDiscount(), а также блок fomo-share-block
+// полностью удалены — динамические скидки за репост снижали конверсию.
 
 function renderFinalResults(analysis, originalScore) {
     const container = document.getElementById('question-container');
     const progressContainer = document.getElementById('analyzer-progress');
 
-    // =========================================================
-    // 🚨 ЛОГИКА СТОП-ФАКТОРОВ (ЖЕСТКАЯ РЕЗКА БАЛЛОВ)
-    // =========================================================
     let score = originalScore;
     let criticalRiskMessage = null;
     const answers = AnalyzerState.answers;
     
-    // Вытягиваем ключевые ответы клиента по ID
     const goal = answers['main_goal']?.value;
     const contract = answers['work_contract_type']?.value;
     const cukrIncome = answers['cukr_income']?.value;
     const famWork = answers['fam_relative_work']?.value;
 
-    // ПРАВИЛО 1: Подача по работе, но нет контракта
     if (goal === 'goal_work' && contract === 'w_no_contract') {
         score = Math.min(score, 15);
         criticalRiskMessage = "Вы выбрали ВНЖ по работе, но у вас пока нет официального контракта. Без Umowa o pracę, Zlecenie или B2B Ужонд выдаст 100% отказ. Сначала необходимо легализовать ваш доход.";
     }
-    // ПРАВИЛО 2: CUKR без официального дохода
     else if (goal === 'goal_cukr' && cukrIncome === 'c_inc_none') {
         score = Math.min(score, 15);
         criticalRiskMessage = "По закону для карты CUKR строго обязательно иметь официальный источник дохода в Польше на момент подачи. У вас его нет, поэтому шансы на одобрение минимальны.";
     }
-    // ПРАВИЛО 3: Воссоединение семьи, но спонсор не работает
     else if (goal === 'goal_family' && famWork === 'f_work_no') {
         score = Math.min(score, 10);
         criticalRiskMessage = "Для воссоединения семьи принимающий родственник обязан иметь стабильный официальный доход в Польше. Без подтвержденного дохода Ужонд не одобрит вам Карту Побыту.";
     }
-    // =========================================================
 
-    // =========================================================
-    // 🧮 РАСЧЕТЫ БАЗОВЫХ ПЕРЕМЕННЫХ (ДО ОТПРАВКИ В MAKE)
-    // =========================================================
     const name = AnalyzerState.contactInfo.name || 'Клиент';
     const scoreClass = getScoreClass(score); 
     const redFlags = AnalyzerState.redFlags;
-    const basePrice = calcPrice(score, redFlags.length); 
     const isSpeedupPath = AnalyzerState.answers['main_goal']?.value === 'goal_speedup';
+    const basePrice = calcPrice(score, redFlags.length, isSpeedupPath);
 
-    // Фолбеки 
     const fallbackDefault = {
         headline: "Анализ завершён — требуется консультация специалиста",
         overall_verdict: "Кейс требует профессиональной оценки для выбора стратегии.",
@@ -1456,28 +1198,25 @@ function renderFinalResults(analysis, originalScore) {
 
     const a = analysis || (isSpeedupPath ? fallbackSpeedup : fallbackDefault);
 
-    // ⏱ ЖЕСТКАЯ ПРИВЯЗКА СРОКОВ К ВОЕВОДСТВУ (OVERRIDE)
     const urzadId = answers['urzad_location']?.value;
     if (urzadId && FLOW['urzad_location']) {
         const urzadOpt = FLOW['urzad_location'].options.find(o => o.id === urzadId);
-        
-        if (urzadOpt && urzadOpt.expected_wait) {
-            if (isSpeedupPath) {
-                a.timeline = "1.5–3 мес.";
-            } else {
-                const minWait = urzadOpt.expected_wait;
-                const maxWait = minWait + 3;
-                a.timeline = `${minWait}–${maxWait} мес.`;
-            }
+
+        if (isSpeedupPath) {
+            // Срок для ускорения всегда фиксирован
+            a.timeline = "до 35 дней";
+        } else if (urzadOpt && urzadOpt.expected_wait) {
+            const minWait = urzadOpt.expected_wait;
+            const maxWait = minWait + 3;
+            a.timeline = `${minWait}–${maxWait} мес.`;
         }
+    } else if (isSpeedupPath) {
+        a.timeline = "до 35 дней";
     }
 
     AnalyzerState.finalPrice = basePrice;
     AnalyzerState.finalTimeline = a.timeline;
 
-    // =========================================================
-    // 🚀 ОТПРАВКА ПОЛНОСТЬЮ УПАКОВАННОГО ЛИДА В MAKE.COM
-    // =========================================================
     const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu';
 
     let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов (Изначально было: ${originalScore})\n`;
@@ -1501,7 +1240,6 @@ function renderFinalResults(analysis, originalScore) {
         });
     }
 
-    // Упаковываем все вычисленные данные
     const payload = {
         name: AnalyzerState.contactInfo.name || 'Без имени',
         phone: AnalyzerState.contactInfo.phone || 'Без телефона',
@@ -1514,11 +1252,9 @@ function renderFinalResults(analysis, originalScore) {
         analyzer_score: score,
         analyzer_price: basePrice,       
         analyzer_timeline: a.timeline,   
-        shared_result: false,        
         downloaded_pdf: false,
     };
 
-    // Отправляем в фоне
     fetch(MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1530,9 +1266,6 @@ function renderFinalResults(analysis, originalScore) {
         console.error('❌ Ошибка отправки аналитики:', err);
     });
     
-    // =========================================================
-    // 🎨 ОТРИСОВКА ИНТЕРФЕЙСА (UI)
-    // =========================================================
     if (progressContainer) {
         const finalTotal = getDynamicTotalSteps();
         document.getElementById('progress-fill').style.width = '100%';
@@ -1585,6 +1318,49 @@ function renderFinalResults(analysis, originalScore) {
 
     container.classList.add('hidden');
     setTimeout(() => {
+
+        // ── Массивный блок ЦЕНА + ГЛАВНЫЙ CTA (идёт первым после метрик) ──
+        // Для ускорения: 500 PLN (только ускорение), срок «до 35 дней».
+        // Для стандарта: 1300 PLN (300 PLN аванс + 1000 PLN после подачи).
+        const priceCtaHtml = isSpeedupPath ? `
+            <div class="dash-price-cta">
+                <div class="dpc-price-col">
+                    <span class="dpc-label">Услуга ускорения (Ponaglenie)</span>
+                    <div class="dpc-value">500 <span class="dpc-currency">PLN</span></div>
+                    <span class="dpc-hint">Срок: <strong>до 35 дней</strong></span>
+                </div>
+                <div class="dpc-cta-col">
+                    <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">
+                        🚀 Ускорить дело →
+                    </a>
+                    <p class="fomo-response-hint">⚡ Ответим за 12 минут · 47 человек за неделю с нами</p>
+                    <div class="dpc-secondary">
+                        <button class="btn-outline df-btn-sec" id="btn-transfer-case">👨‍💼 Передать мой кейс специалисту</button>
+                        <button class="btn-outline df-btn-sec" id="btn-dash-pdf">📄 Скачать PDF</button>
+                    </div>
+                </div>
+            </div>
+        ` : `
+            <div class="dash-price-cta">
+                <div class="dpc-price-col">
+                    <span class="dpc-label">Сопровождение под ключ</span>
+                    <div class="dpc-value">1300 <span class="dpc-currency">PLN</span></div>
+                    <span class="dpc-hint"><strong>300 PLN</strong> — аванс &nbsp;·&nbsp; <strong>1000 PLN</strong> — после подачи</span>
+                </div>
+                <div class="dpc-cta-col">
+                    <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">
+                        📋 Разобрать кейс бесплатно →
+                    </a>
+                    <p class="fomo-response-hint">⚡ Ответим за 12 минут · 47 человек за неделю с нами</p>
+                    <div class="dpc-secondary">
+                        <button class="btn-outline df-btn-sec" id="btn-transfer-case">👨‍💼 Передать мой кейс специалисту</button>
+                        <button class="btn-outline df-btn-sec" id="btn-dash-pdf">📄 Скачать PDF</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+
         let htmlTemplate = `
             <div class="dash-wrapper">
                 
@@ -1616,6 +1392,9 @@ function renderFinalResults(analysis, originalScore) {
                         <span class="dm-val text-accent">${a.timeline}</span>
                     </div>
                 </div>
+
+                <!-- ЦЕНА + ГЛАВНЫЙ CTA: первый элемент после метрик, визуально массивный -->
+                ${priceCtaHtml}
 
                 <div class="dash-grid">
                     <div class="dash-card">
@@ -1653,27 +1432,6 @@ function renderFinalResults(analysis, originalScore) {
                     </div>
                 </div>
 
-                <div class="dash-footer">
-                    <div class="df-price-col">
-                        <span class="df-price-lbl">Цена сопровождения под ключ</span>
-                        <div class="df-price-val" id="price-numbers">
-                            <span class="price-current" id="price-current">${basePrice} PLN</span>
-                        </div>
-                        <span class="df-price-sub">Оплата после подачи</span>
-                    </div>
-                    <div class="df-cta-col">
-                        <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">
-                            ${isSpeedupPath ? 'Ускорить в Telegram →' : 'Узнать детали в Telegram →'}
-                        </a>
-                        <button class="btn-outline df-btn-share" id="btn-dash-share">
-                            📤 Поделиться
-                        </button>
-                        <button class="btn-outline df-btn-pdf" id="btn-dash-pdf">
-                            📄 Скачать PDF
-                        </button>
-                    </div>
-                </div>
-                <p class="share-already" id="share-status" style="text-align:center; margin-top:0.5rem;"></p>
             </div>
         `;
         
@@ -1682,48 +1440,47 @@ function renderFinalResults(analysis, originalScore) {
         container.classList.add('active');
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // === ВЕШАЕМ НАТИВНЫЙ ШЕРИНГ ===
-        const btnShare = document.getElementById('btn-dash-share');
-        if (btnShare) {
-            btnShare.addEventListener('click', async () => {
-                const scoreTitle = getScoreTitle(score);
-                const goalLabel = AnalyzerState.answers['main_goal']?.label || 'ВНЖ';
-                const shareUrl = window.location.href.split('?')[0];
-                const personalText = `Прошёл(а) анализатор ВНЖ от RESIDIA — результат: ${score}/100, "${scoreTitle}".\nЦель: ${goalLabel}. Срок ожидания: ${a.timeline}.\nПроверь свои шансы: ${shareUrl}`;
+        // ── Кнопка «Передать мой кейс специалисту» ──
+        // Отправляет analyzer_call_request в Make.com, затем блокирует повторный
+        // клик и меняет текст на «Заявка отправлена».
+        const btnTransfer = document.getElementById('btn-transfer-case');
+        if (btnTransfer) {
+            btnTransfer.addEventListener('click', () => {
+                if (btnTransfer.disabled) return;
+                btnTransfer.disabled = true;
+                btnTransfer.textContent = '⏳ Отправка...';
 
-                const shareData = { title: 'Оценка шансов на ВНЖ — RESIDIA', text: personalText, url: shareUrl };
-                
-                try {
-                    if (navigator.share) await navigator.share(shareData);
-                    else {
-                        await navigator.clipboard.writeText(personalText);
-                        const status = document.getElementById('share-status');
-                        if (status) { status.textContent = '✓ Текст скопирован'; status.style.color = 'var(--accent-color)'; }
-                    }
+                fetch(MAKE_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: AnalyzerState.contactInfo.name || 'Без имени',
+                        phone: AnalyzerState.contactInfo.phone || 'Без телефона',
+                        telegram: AnalyzerState.contactInfo.telegram || '',
+                        notion_page_id: AnalyzerState.notionPageId,
+                        source: 'analyzer_call_request',
+                        analyzer_score: score,
+                        analyzer_price: basePrice,
+                        submitted_at: new Date().toISOString()
+                    })
+                }).then(() => {
+                    // Успех: фиксируем визуально, повторный клик уже заблокирован выше
+                    btnTransfer.textContent = '✅ Заявка отправлена';
+                    btnTransfer.style.borderColor = 'var(--accent-color)';
+                    btnTransfer.style.color = 'var(--accent-color)';
+                }).catch(err => {
+                    // Ошибка сети: возвращаем кнопку в исходное состояние
+                    console.error('Ошибка отправки заявки:', err);
+                    btnTransfer.disabled = false;
+                    btnTransfer.textContent = '👨‍💼 Передать мой кейс специалисту';
+                });
 
-                    AnalyzerState.sharedResult = true;
-                    if (typeof fbq === 'function') {
-                        fbq('trackCustom', 'ShareResult');
-                    }
-                    fetch(MAKE_WEBHOOK_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: AnalyzerState.contactInfo.name,
-                            phone: AnalyzerState.contactInfo.phone,
-                            notion_page_id: AnalyzerState.notionPageId,
-                            source: 'analyzer_share_event',
-                            shared_result: true,
-                            downloaded_pdf: AnalyzerState.downloadedPdf,
-                            submitted_at: new Date().toISOString()
-                        })
-                    });
-                    activateDiscount(basePrice, Math.round(basePrice * 0.9 / 10) * 10);
-                } catch (err) { console.log('Шеринг отменен', err); }
+                if (typeof fbq === 'function') {
+                    fbq('trackCustom', 'TransferCase');
+                }
             });
         }
 
-        // === КНОПКА ГЕНЕРАЦИИ ФИРМЕННОГО PDF ===
         const btnPdf = document.getElementById('btn-dash-pdf');
         if (btnPdf) {
             btnPdf.addEventListener('click', () => {
@@ -1734,7 +1491,6 @@ function renderFinalResults(analysis, originalScore) {
                 btnPdf.classList.add('is-loading');
 
                 AnalyzerState.downloadedPdf = true;
-                // Отправляем событие в Make о загрузке PDF
                 if (typeof fbq === 'function') {
                     fbq('trackCustom', 'DownloadPDF');
                 }
@@ -1747,21 +1503,23 @@ function renderFinalResults(analysis, originalScore) {
                         phone: AnalyzerState.contactInfo.phone,
                         notion_page_id: AnalyzerState.notionPageId,
                         source: 'analyzer_pdf_download',
-                        shared_result: AnalyzerState.sharedResult,
                         downloaded_pdf: true,
                         submitted_at: new Date().toISOString()
                     })
                 }).catch(e => console.error(e));
 
-                // Создаем виртуальный макет для PDF (строгие размеры 800px)
+                // ── FIX: html2pdf не видит «отвязанный» от DOM элемент. ──
+                // Создаём скрытый контейнер, добавляем его в <body>, рендерим,
+                // затем гарантированно удаляем из DOM (и в .then, и в .catch).
                 const pdfContainer = document.createElement('div');
+                pdfContainer.style.cssText = 'position:absolute; left:-9999px; top:0; visibility:hidden;';
                 pdfContainer.innerHTML = `
                     <div style="width: 800px; padding: 40px; background: #ffffff; color: #1a1a1a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box;">
                         
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #10B981; padding-bottom: 20px; margin-bottom: 30px;">
                             <div>
                                 <h2 style="margin: 0; color: #10B981; font-size: 28px; letter-spacing: -1px;">RESIDIA<span style="color:#1a1a1a;">.</span></h2>
-                                <p style="margin: 5px 0 0 0; color: #575F6C; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Migration Analyzer 2.0</p>
+                                <p style="margin: 5px 0 0 0; color: #575F6C; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Migration Analyzer 2.1</p>
                             </div>
                             <div style="text-align: right;">
                                 <p style="margin: 0; font-size: 14px; font-weight: bold;">${new Date().toLocaleDateString('ru-RU')}</p>
@@ -1821,6 +1579,11 @@ function renderFinalResults(analysis, originalScore) {
                             </ul>
                         </div>
 
+                        <div style="margin-bottom: 30px; padding: 15px 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px;">
+                            <p style="margin: 0 0 5px 0; font-size: 13px; font-weight: bold; color: #10B981; text-transform: uppercase;">Стоимость сопровождения</p>
+                            <p style="margin: 0; font-size: 14px; color: #1a1a1a;">${isSpeedupPath ? '500 PLN — ускорение (Ponaglenie) · срок до 35 дней' : '1300 PLN (300 PLN аванс + 1000 PLN после подачи)'}</p>
+                        </div>
+
                         <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
                             <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold; color: #1a1a1a;">RESIDIA Consulting</p>
                             <p style="margin: 0; font-size: 12px; color: #575F6C;">Связь с экспертом: +48 571 528 293 | Telegram: @residia_consulting</p>
@@ -1828,15 +1591,21 @@ function renderFinalResults(analysis, originalScore) {
                     </div>
                 `;
 
+                // Вставляем в DOM — без этого html2canvas рендерит пустой лист
+                document.body.appendChild(pdfContainer);
+
                 const opt = {
                     margin:       0,
                     filename:     `Residia_Analysis_${name.replace(/\s+/g, '_')}.pdf`,
                     image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, useCORS: true },
+                    html2canvas:  { scale: 2, useCORS: true, logging: false },
                     jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
                 };
 
                 html2pdf().set(opt).from(pdfContainer.firstElementChild).save().then(() => {
+                    // Чистим временный узел из DOM
+                    if (document.body.contains(pdfContainer)) document.body.removeChild(pdfContainer);
+
                     btnPdf.innerHTML = '✓ PDF скачан';
                     btnPdf.style.borderColor = 'var(--accent-color)';
                     btnPdf.style.color = 'var(--accent-color)';
@@ -1844,35 +1613,19 @@ function renderFinalResults(analysis, originalScore) {
                     
                     setTimeout(() => {
                         btnPdf.innerHTML = originalText;
-                        btnPdf.style = '';
+                        btnPdf.style.borderColor = '';
+                        btnPdf.style.color = '';
                     }, 3000);
+                }).catch(err => {
+                    // На ошибке тоже убираем узел и разблокируем кнопку
+                    console.error('Ошибка генерации PDF:', err);
+                    if (document.body.contains(pdfContainer)) document.body.removeChild(pdfContainer);
+                    btnPdf.innerHTML = originalText;
+                    btnPdf.classList.remove('is-loading');
                 });
             });
         }
     }, 300);
-}
-
-const btnPdf = document.getElementById('btn-dash-pdf');
-if (btnPdf) {
-    btnPdf.addEventListener('click', () => {
-        AnalyzerState.downloadedPdf = true;
-        fetch('https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: AnalyzerState.contactInfo.name,
-                phone: AnalyzerState.contactInfo.phone,
-                source: 'analyzer_pdf_download',
-                shared_result: AnalyzerState.sharedResult,
-                downloaded_pdf: true,
-                analyzer_price: AnalyzerState.finalPrice,
-                analyzer_timeline: AnalyzerState.finalTimeline,
-                submitted_at: new Date().toISOString()
-            })
-        });
-        // Пока просто alert — потом заменишь на реальный PDF
-        alert('PDF будет доступен в ближайшее время!');
-    });
 }
 
 // ─── 8. HELPERS ────────────────────────────────────────────
@@ -1900,10 +1653,10 @@ function getScoreClass(score) {
 }
 
 function getScoreTitle(score) {
-    if (score >= 80) return 'Сильный кейс';
-    if (score >= 65) return 'Хорошие шансы';
+    if (score >= 82) return 'Сильный кейс';
+    if (score >= 68) return 'Хорошие шансы';
     if (score >= 50) return 'Требует доработки';
-    if (score >= 35) return 'Высокий риск';
+    if (score >= 30) return 'Высокий риск';
     return 'Критическая ситуация';
 }
 
@@ -1920,7 +1673,6 @@ function getProbClass(prob) {
 }
 
 // ─── 9. INLINE STYLES FOR ANALYZER ────────────────────────
-// Injected to avoid requiring changes to styles.css
 
 function injectAnalyzerStyles() {
     const style = document.createElement('style');
@@ -2302,57 +2054,126 @@ function injectAnalyzerStyles() {
         }
         .price-payment-icon { color: var(--accent-color); font-weight: 700; flex-shrink: 0; }
 
-        /* ── SHARE BLOCK ── */
-        .share-block {
-            background: linear-gradient(135deg, rgba(16,185,129,0.06) 0%, transparent 100%);
-            border: 2px dashed var(--accent-color);
-            border-radius: 6px;
-            padding: 1.5rem;
-            margin: 1rem 0 2rem;
-            transition: border-style 0.3s, background 0.3s;
-        }
-        .share-block.share-done {
-            border-style: solid;
-            background: rgba(16,185,129,0.06);
-        }
-        .share-discount-badge {
-            display: inline-block;
-            background: var(--accent-color);
-            color: #fff;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            padding: 0.3rem 0.75rem;
-            border-radius: 2rem;
-            margin-bottom: 0.75rem;
-        }
-        .share-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
-        .share-desc { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.5; }
-        .share-buttons { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-        .share-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.7rem 1.1rem;
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-            background: var(--card-bg);
-            color: var(--text-color);
-            font-size: 0.875rem;
-            font-family: var(--font-main);
-            cursor: pointer;
-            transition: all 0.2s;
+        /* ── Подсказка под главным CTA (под кнопкой, по центру) ── */
+        .fomo-response-hint {
+            font-size: 0.78rem;
+            color: var(--accent-color);
+            margin: 0;
             font-weight: 500;
+            text-align: center;
+            line-height: 1.4;
         }
-        .share-btn:hover { border-color: var(--accent-color); transform: translateY(-1px); }
-        .share-btn-tg:hover { color: #2aabee; border-color: #2aabee; }
-        .share-btn-wa:hover { color: #25d366; border-color: #25d366; }
-        .share-btn-copy:hover { color: var(--accent-color); }
-        .share-already { font-size: 0.85rem; font-weight: 600; min-height: 1.2em; transition: color 0.3s; }
+
+        /* ── CONSEQUENCES BLOCK ── */
+        .consequences-block {
+            margin: 1.5rem 0;
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .csq-title {
+            background: rgba(239,68,68,0.07);
+            padding: 0.75rem 1.25rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #ef4444;
+            border-bottom: 1px solid rgba(239,68,68,0.15);
+        }
+        .csq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+        @media (max-width: 600px) { .csq-grid { grid-template-columns: 1fr; } }
+        .csq-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            padding: 0.85rem 1.1rem;
+            font-size: 0.83rem;
+            line-height: 1.45;
+            border-bottom: 1px solid rgba(239,68,68,0.08);
+            border-right: 1px solid rgba(239,68,68,0.08);
+        }
+        .csq-item:nth-child(even) { border-right: none; }
+        .csq-item:nth-last-child(-n+2) { border-bottom: none; }
+        .csq-red { color: var(--text-color); background: rgba(239,68,68,0.03); }
+        .csq-orange { color: var(--text-color); background: rgba(245,158,11,0.03); }
+        .csq-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
         
-        /* Сброс акцентного выделения кнопки Анализатор на самой странице квиза */
-        
+        /* ── МАССИВНЫЙ БЛОК ЦЕНА + CTA (первый после метрик) ── */
+        .dash-price-cta {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            background: var(--card-bg);
+            border: 2px solid var(--text-color);
+            border-radius: 8px;
+            padding: 1.5rem 1.75rem;
+        }
+        .dpc-price-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            min-width: 200px;
+        }
+        .dpc-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+        .dpc-value {
+            font-size: 2.6rem;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -0.03em;
+            color: var(--text-color);
+        }
+        .dpc-currency { font-size: 1.3rem; font-weight: 600; color: var(--text-muted); }
+        .dpc-hint { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; }
+        .dpc-hint strong { color: var(--text-color); }
+        .dpc-cta-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            flex: 1;
+            min-width: 240px;
+        }
+        .dpc-cta-col .df-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 0.95rem 1rem;
+            font-size: 1rem;
+            font-weight: 700;
+            text-align: center;
+        }
+        .dpc-secondary {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.2rem;
+        }
+        .dpc-secondary .df-btn-sec {
+            flex: 1;
+            min-width: 150px;
+            justify-content: center;
+            padding: 0.6rem 0.5rem;
+            font-size: 0.85rem;
+            text-align: center;
+            background: transparent;
+            color: var(--text-color);
+        }
+        /* Адаптив: на мобильных всё в колонку, без выхода за экран */
+        @media (max-width: 768px) {
+            .dash-price-cta { flex-direction: column; align-items: stretch; padding: 1.25rem; }
+            .dpc-price-col, .dpc-cta-col { min-width: unset; }
+            .dpc-secondary { flex-direction: column; }
+            .dpc-secondary .df-btn-sec { min-width: unset; width: 100%; }
+        }
+
         .main-nav a.nav-analyzer {
             color: var(--text-color) !important;
             font-weight: 500 !important;
@@ -2364,16 +2185,13 @@ function injectAnalyzerStyles() {
     document.head.appendChild(style);
 }
 
-
 // ─── 10. INIT ──────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
     injectAnalyzerStyles();
 
-    // === ЛОГИКА ТЕМНОЙ/СВЕТЛОЙ ТЕМЫ ===
     const themeToggleBtn = document.getElementById('theme-toggle');
     const htmlElement = document.documentElement;
-    // Берем сохраненную тему из браузера или ставим светлую по умолчанию
     const savedTheme = localStorage.getItem('theme') || 'light';
     
     htmlElement.setAttribute('data-theme', savedTheme);
@@ -2386,7 +2204,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('theme', newTheme);
         });
     }
-    // === АНИМАЦИЯ ПЕЧАТАЮЩЕГОСЯ ТЕКСТА ===
+
     const typingContainer = document.getElementById('typing-text');
     let typingTimer = null;
 
@@ -2400,10 +2218,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 index++;
                 typingTimer = setTimeout(typeEffect, 45);
             } else {
-                // Вставляем бренд с классом плавного проявления fade-in-brand
                 typingContainer.innerHTML += '<span class="text-accent fade-in-brand">Residia.</span>';
                 
-                // Убираем мигающий курсор чуть позже, чтобы он не исчезал обрывисто
                 setTimeout(() => {
                     const cursor = document.querySelector('.typing-cursor');
                     if (cursor) cursor.style.display = 'none';
@@ -2412,12 +2228,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         setTimeout(typeEffect, 300);
     }
-    // =====================================
 
     const btnStart = document.getElementById('btn-start-analyzer');
     const stepOnboarding = document.getElementById('step-onboarding');
     const questionContainer = document.getElementById('question-container');
-    // ДОБАВИЛИ: Находим прогресс-бар в HTML
     const progressContainer = document.getElementById('analyzer-progress');
 
     if (btnStart && stepOnboarding && questionContainer) {
@@ -2435,8 +2249,40 @@ document.addEventListener('DOMContentLoaded', () => {
             
             questionContainer.classList.remove('hidden');
             
-            // СТАРТУЕМ С ВОЕВОДСТВА ВМЕСТО MAIN_GOAL
             renderStep('main_goal'); 
         });
     }
+
+    // ── Бургер-меню (мобильная навигация) ──
+    initBurgerMenu();
 });
+
+/**
+ * Инициализация бургер-меню. Безопасна для всех страниц:
+ * если кнопки .burger-btn нет — просто ничего не делает.
+ * Защита от двойной инициализации через data-атрибут.
+ */
+function initBurgerMenu() {
+    const burgerBtn = document.querySelector('.burger-btn');
+    const mainNav   = document.querySelector('.main-nav');
+    if (!burgerBtn || !mainNav) return;
+    if (burgerBtn.dataset.bound === 'true') return; // уже привязано
+    burgerBtn.dataset.bound = 'true';
+
+    const toggle = (open) => {
+        const willOpen = open ?? !mainNav.classList.contains('active');
+        mainNav.classList.toggle('active', willOpen);
+        burgerBtn.classList.toggle('active', willOpen);
+        document.body.classList.toggle('nav-open', willOpen);
+    };
+
+    burgerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggle();
+    });
+
+    // Клик по любой ссылке внутри меню — закрываем
+    mainNav.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => toggle(false));
+    });
+}

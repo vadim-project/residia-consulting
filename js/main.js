@@ -202,6 +202,33 @@ document.addEventListener('DOMContentLoaded', () => {
             input.addEventListener('input', () => input.style.borderColor = 'var(--border-color)');
         });
     }
+
+    /* === 6. БУРГЕР-МЕНЮ (мобильная навигация) === */
+    // Безопасно для всех страниц: если .burger-btn нет — ничего не делает.
+    (function initBurgerMenu() {
+        const burgerBtn = document.querySelector('.burger-btn');
+        const mainNav   = document.querySelector('.main-nav');
+        if (!burgerBtn || !mainNav) return;
+        if (burgerBtn.dataset.bound === 'true') return; // защита от двойной привязки
+        burgerBtn.dataset.bound = 'true';
+
+        const toggle = (open) => {
+            const willOpen = (typeof open === 'boolean') ? open : !mainNav.classList.contains('active');
+            mainNav.classList.toggle('active', willOpen);
+            burgerBtn.classList.toggle('active', willOpen);
+            document.body.classList.toggle('nav-open', willOpen);
+        };
+
+        burgerBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggle();
+        });
+
+        // Закрываем меню при клике по любой ссылке навигации
+        mainNav.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => toggle(false));
+        });
+    })();
 });
 
 /* === 5. АНИМАЦИИ И РЕНДЕР СЕРВИСОВ (НЕ ТРОГАЕМ) === */

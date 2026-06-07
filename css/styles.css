@@ -58,6 +58,7 @@
         background-color: var(--bg-color);
         color: var(--text-color);
         line-height: 1.6;
+        overflow-x: hidden; /* Защита: ничего не выходит за пределы экрана по горизонтали */
         transition: background-color 0.3s ease, color 0.3s ease;
     }
 
@@ -2666,4 +2667,133 @@ html[data-theme="dark"] .btn-analyzer-hero::after {
     opacity: 0 !important;
     pointer-events: none !important;
     transform: scale(0.5) translateY(20px) !important;
+}
+
+/* =========================================
+   DASHBOARD FOOTER (Подвал анализатора)
+   ========================================= */
+.dash-footer { 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    background: var(--card-bg); 
+    border: 2px solid var(--text-color); 
+    border-radius: 6px; 
+    padding: 1rem 1.5rem; 
+    gap: 1rem; 
+    flex-wrap: wrap; 
+}
+
+.df-price-col { display: flex; flex-direction: column; }
+.df-price-lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+.df-price-val { font-size: 1.8rem; font-weight: 700; line-height: 1.1; color: var(--text-color); }
+.df-price-sub { font-size: 0.75rem; color: var(--accent-color); font-weight: 600; }
+
+/* ── Идеальная верстка кнопок ── */
+.df-cta-col { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 0.75rem; 
+    flex: 1; 
+    align-items: flex-end; 
+}
+
+.df-cta-main { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    width: 100%; 
+    max-width: 320px; 
+}
+
+.df-cta-secondary { 
+    display: flex; 
+    gap: 0.5rem; 
+    width: 100%; 
+    max-width: 320px; 
+}
+
+.df-btn { 
+    width: 100%; 
+    justify-content: center; 
+    padding: 0.85rem 1rem; 
+    font-size: 0.95rem; 
+    font-weight: 600; 
+}
+
+.df-btn-sec { 
+    flex: 1; 
+    justify-content: center; 
+    padding: 0.6rem 0.5rem; 
+    font-size: 0.85rem; 
+    text-align: center; 
+    background: transparent; 
+    color: var(--text-color); 
+}
+
+.fomo-response-hint { 
+    font-size: 0.75rem; 
+    color: var(--text-muted); 
+    margin-top: 0.5rem; 
+    font-weight: 500; 
+    text-align: center;
+    margin-top: 0.5rem; /* Прижимает подсказку к нижнему краю колонки, если кнопки занимают меньше места */
+}
+
+/* ── Адаптив для телефонов ── */
+@media (max-width: 768px) {
+    .dash-footer { flex-direction: column; align-items: stretch; text-align: center; }
+    .df-cta-col { align-items: stretch; }
+    .df-cta-main, .df-cta-secondary { max-width: 100%; }
+    
+    /* Остальные правки дашборда для мобилок */
+    .dash-grid { grid-template-columns: 1fr; }
+    .dash-metrics-ribbon { justify-content: flex-start; }
+    .dm-divider { display: none; }
+    .dc-split { flex-direction: column; }
+}
+
+/* --- БУРГЕР МЕНЮ --- */
+.burger-btn { display: none; flex-direction: column; justify-content: space-between; width: 30px; height: 21px; background: transparent; border: none; cursor: pointer; z-index: 1101; padding: 0; }
+.burger-btn span { display: block; width: 100%; height: 3px; background-color: var(--text-color); border-radius: 3px; transition: transform 0.3s ease, opacity 0.3s ease; transform-origin: center; }
+
+/* Превращение бургера в крестик при открытом меню */
+.burger-btn.active span:nth-child(1) { transform: translateY(9px) rotate(45deg); }
+.burger-btn.active span:nth-child(2) { opacity: 0; }
+.burger-btn.active span:nth-child(3) { transform: translateY(-9px) rotate(-45deg); }
+
+@media (max-width: 767px) {
+    .burger-btn { display: flex; }
+    .main-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: var(--bg-color); flex-direction: column; justify-content: center; align-items: center; gap: 2.5rem; transform: translateY(-100%); transition: transform 0.4s ease; z-index: 1100; }
+    .main-nav.active { transform: translateY(0); display: flex !important; }
+    /* Блокируем прокрутку страницы под открытым меню */
+    body.nav-open { overflow: hidden; }
+}
+
+/* --- DASHBOARD FOOTER (CTA-БЛОК) --- */
+.dash-footer {
+    margin: 20px 0;
+    padding: 24px;
+    background: #ffffff;
+    border: 2px solid var(--accent-color);
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 30px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+.df-price-col { min-width: 220px; }
+.df-price-lbl { font-size: 0.8rem; text-transform: uppercase; font-weight: 800; color: #64748b; margin-bottom: 8px; display: block; }
+.df-price-val { font-size: 1.8rem; font-weight: 800; color: #1e293b; }
+.df-price-sub { font-size: 0.85rem; color: #475569; display: block; margin-top: 5px; }
+
+.df-cta-col { flex: 1; display: flex; flex-direction: column; gap: 10px; max-width: 400px; }
+.btn-solid.df-btn { background: var(--accent-color); color: white; padding: 16px; font-size: 1.1rem; border-radius: 8px; text-align: center; font-weight: 700; border: none; cursor: pointer; }
+.btn-outline.df-btn-sec { padding: 12px; border: 1px solid #cbd5e1; width: 100%; border-radius: 6px; background: transparent; color: #1e293b; cursor: pointer; }
+.fomo-response-hint { font-size: 0.75rem; color: #64748b; margin-top: 5px; text-align: center; }
+
+@media (max-width: 768px) {
+    .dash-footer { flex-direction: column; text-align: center; }
+    .df-cta-col { width: 100%; }
 }
