@@ -144,6 +144,16 @@ const AnalyzerState = {
 
 const FLOW = {
 
+    start_status: {
+        question: "Каков ваш текущий статус легализации?",
+        subtitle: "Выберите подходящий вариант, чтобы адаптировать юридический разбор под вашу ситуацию.",
+        type: "options",
+        options: [
+            { id: "status_submitted", label: "⏳ Я уже подан на карту побыта (жду решение)", next: "urzad_location", scoring: {} },
+            { id: "status_planning", label: "📅 Я только планирую подачу документов", next: "main_goal", scoring: {} }
+        ]
+    },
+
     main_goal: {
         question: "Что именно вас интересует?",
         subtitle: "Выберите наиболее подходящий вариант, чтобы система адаптировала юридические вопросы под ваш кейс.",
@@ -152,7 +162,8 @@ const FLOW = {
             { id: "goal_work", label: "Карта побыта по работе", next: "urzad_location", scoring: {} },
             { id: "goal_cukr", label: "Подача на карту CUKR", next: "urzad_location", scoring: {} },
             { id: "goal_family", label: "Карта побыта/Воссоединение семьи", next: "urzad_location", scoring: {} },
-            { id: "goal_speedup", label: "Ускорение вашего дела", next: "urzad_location", scoring: { stabilityScore: +10 } },
+            { id: "goal_staly", label: "Карта сталого побыта", next: "urzad_location", scoring: {} },
+            { id: "goal_resident", label: "Карта долгосрочного резидента ЕС", next: "urzad_location", scoring: {} }
         ]
     },
 
@@ -817,6 +828,16 @@ function bindOptionButtons(stepId) {
 
             AnalyzerState.addAnswer(stepId, optionId, label, selectedOpt.scoring);
 
+            // Если человек уже подан, автоматически симулируем выбор цели "Ускорение дела"
+            // Это позволит всем остальным функциям корректно распознавать и собирать speedup-сценарий
+            if (stepId === 'start_status' && optionId === 'status_submitted') {
+                AnalyzerState.answers['main_goal'] = { 
+                    value: 'goal_speedup', 
+                    label: 'Ускорение вашего дела', 
+                    delta: { stabilityScore: +10 } 
+                };
+            }
+
             document.querySelectorAll('.analyzer-option-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
 
@@ -828,6 +849,8 @@ function bindOptionButtons(stepId) {
                 else if (goal === 'goal_cukr') nextStep = 'cukr_pesel';
                 else if (goal === 'goal_family') nextStep = 'fam_relative_work';
                 else if (goal === 'goal_speedup') nextStep = 'waiting_time_input';
+                // Новые типы планирования направляем в общую ветку проверки базовых критериев (гражданство/основания)
+                else if (goal === 'goal_staly' || goal === 'goal_resident') nextStep = 'nationality';
             }
 
             setTimeout(() => renderStep(nextStep), 200);
@@ -2249,7 +2272,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             questionContainer.classList.remove('hidden');
             
-            renderStep('main_goal'); 
+            renderStep('start_status'); 
         });
     }
 
