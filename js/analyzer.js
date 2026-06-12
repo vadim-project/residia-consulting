@@ -1114,14 +1114,14 @@ function animateLoadingSteps() {
         } else {
             clearInterval(interval);
         }
-    }, 1800);
+    }, 900);
 }
 
 function runAIAnalysis() {
     const score = AnalyzerState.getFinalScore();
     setTimeout(() => {
         renderFinalResults(null, score);
-    }, 4 * 1800 + 400);
+    }, 4 * 900 + 200);
 }
 
 // ─── 7. RESULTS SCREEN ────────────────────────────────────
@@ -2266,14 +2266,22 @@ function initBurgerMenu() {
     const burgerBtn = document.querySelector('.burger-btn');
     const mainNav   = document.querySelector('.main-nav');
     if (!burgerBtn || !mainNav) return;
-    if (burgerBtn.dataset.bound === 'true') return; // уже привязано
+    if (burgerBtn.dataset.bound === 'true') return;
     burgerBtn.dataset.bound = 'true';
+
+    let overlay = document.querySelector('.nav-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'nav-overlay';
+        document.body.appendChild(overlay);
+    }
 
     const toggle = (open) => {
         const willOpen = open ?? !mainNav.classList.contains('active');
         mainNav.classList.toggle('active', willOpen);
         burgerBtn.classList.toggle('active', willOpen);
         document.body.classList.toggle('nav-open', willOpen);
+        overlay.classList.toggle('active', willOpen);
     };
 
     burgerBtn.addEventListener('click', (e) => {
@@ -2281,8 +2289,16 @@ function initBurgerMenu() {
         toggle();
     });
 
-    // Клик по любой ссылке внутри меню — закрываем
     mainNav.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', () => toggle(false));
+    });
+
+    // Клик вне панели закрывает меню
+    document.addEventListener('click', (e) => {
+        if (mainNav.classList.contains('active') &&
+            !mainNav.contains(e.target) &&
+            !burgerBtn.contains(e.target)) {
+            toggle(false);
+        }
     });
 }

@@ -42,14 +42,9 @@
                 
             </nav>
 
-            <!-- Бургер-меню для мобильных -->
-            <button class="burger-btn" aria-label="Открыть меню">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-
-            <button id="theme-toggle" class="theme-switch" aria-label="Переключить тему">
+            <!-- Правый блок: тема + бургер -->
+            <div class="header-right">
+                <button id="theme-toggle" class="theme-switch" aria-label="Переключить тему">
                 <span class="theme-switch-slider"></span>
                 <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="5"></circle>
@@ -65,7 +60,13 @@
                 <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                 </svg>
-            </button>
+                </button>
+                <button class="burger-btn" aria-label="Открыть меню">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
         </div>
     </header>
 

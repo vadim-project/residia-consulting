@@ -206,29 +206,47 @@ document.addEventListener('DOMContentLoaded', () => {
     /* === 6. БУРГЕР-МЕНЮ (мобильная навигация) === */
     // Безопасно для всех страниц: если .burger-btn нет — ничего не делает.
     (function initBurgerMenu() {
-        const burgerBtn = document.querySelector('.burger-btn');
-        const mainNav   = document.querySelector('.main-nav');
-        if (!burgerBtn || !mainNav) return;
-        if (burgerBtn.dataset.bound === 'true') return; // защита от двойной привязки
-        burgerBtn.dataset.bound = 'true';
+    const burgerBtn = document.querySelector('.burger-btn');
+    const mainNav   = document.querySelector('.main-nav');
+    if (!burgerBtn || !mainNav) return;
+    if (burgerBtn.dataset.bound === 'true') return;
+    burgerBtn.dataset.bound = 'true';
 
-        const toggle = (open) => {
-            const willOpen = (typeof open === 'boolean') ? open : !mainNav.classList.contains('active');
-            mainNav.classList.toggle('active', willOpen);
-            burgerBtn.classList.toggle('active', willOpen);
-            document.body.classList.toggle('nav-open', willOpen);
-        };
+    // Создаём подложку-затемнение
+    let overlay = document.querySelector('.nav-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'nav-overlay';
+        document.body.appendChild(overlay);
+    }
 
-        burgerBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggle();
-        });
+    const toggle = (open) => {
+        const willOpen = (typeof open === 'boolean') ? open : !mainNav.classList.contains('active');
+        mainNav.classList.toggle('active', willOpen);
+        burgerBtn.classList.toggle('active', willOpen);
+        document.body.classList.toggle('nav-open', willOpen);
+        overlay.classList.toggle('active', willOpen);
+    };
 
-        // Закрываем меню при клике по любой ссылке навигации
-        mainNav.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', () => toggle(false));
-        });
-    })();
+    burgerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggle();
+    });
+
+    // Клик по ссылке — закрываем
+    mainNav.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => toggle(false));
+    });
+
+    // Клик вне панели — закрываем (overlay pointer-events:none, поэтому через document)
+    document.addEventListener('click', (e) => {
+        if (mainNav.classList.contains('active') &&
+            !mainNav.contains(e.target) &&
+            !burgerBtn.contains(e.target)) {
+            toggle(false);
+        }
+    });
+    })();   
 });
 
 /* === 5. АНИМАЦИИ И РЕНДЕР СЕРВИСОВ (НЕ ТРОГАЕМ) === */
