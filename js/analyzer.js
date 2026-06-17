@@ -167,6 +167,81 @@ const FLOW = {
         ]
     },
 
+    staly_basis: {
+        question: "На каком основании вы планируете запрашивать Карту Сталого Побыта?",
+        subtitle: "Для этой карты необходимы веские основания, связанные с происхождением или семейным статусом.",
+        type: "options",
+        options: [
+            { id: "staly_kp", label: "У меня есть действующая Карта Поляка", next: "staly_integration", scoring: { overall: +20, immigrationTrust: +20 } },
+            { id: "staly_roots", label: "У меня есть документы, подтверждающие польские корни", next: "staly_integration", scoring: { overall: +15, immigrationTrust: +15 } },
+            { id: "staly_marriage", label: "Брак с гражданином / гражданкой Польши", next: "staly_marriage_dates", scoring: { overall: +10 } },
+            { id: "staly_long_residence", label: "Проживание в Польше более 5 лет по работе", next: "nationality", scoring: { overall: -30, risk: +40 } }
+        ]
+    },
+
+    staly_marriage_dates: {
+        question: "Соответствуете ли вы временным критериям подачи по браку?",
+        subtitle: "Закон требует одновременного выполнения двух условий по срокам на момент подачи.",
+        type: "options",
+        options: [
+            { id: "staly_m_ok", label: "В браке > 3 лет, и последние 2 года живу в Польше по ВНЖ", next: "nationality", scoring: { overall: +20, residenceContinuity: +20 } },
+            { id: "staly_m_fail", label: "Брак менее 3 лет ИЛИ по ВНЖ живу в Польше менее 2 лет", next: "nationality", scoring: { overall: -40, risk: +50 } }
+        ]
+    },
+
+    staly_integration: {
+        question: "Сможете ли вы подтвердить намерение остаться в Польше?",
+        subtitle: "Инспекторы тщательно проверяют экономическую и социальную связь со страной.",
+        type: "options",
+        options: [
+            { id: "staly_int_yes", label: "Да, официально работаю / учусь или арендую жилье", next: "nationality", scoring: { overall: +15, stabilityScore: +15 } },
+            { id: "staly_int_no", label: "Пока нет (только переехал или работаю неофициально)", next: "nationality", scoring: { overall: -10, risk: +15 } }
+        ]
+    },
+
+    resident_years: {
+        question: "Сколько полных лет вы непрерывно проживаете в Польше?",
+        subtitle: "Для получения статуса Резидента ЕС закон требует минимум 5 лет непрерывного легального пребывания.",
+        type: "options",
+        options: [
+            { id: "res_5y_ok", label: "5 лет и более", next: "resident_basis", scoring: { residenceContinuity: +20, stabilityScore: +15 } },
+            { id: "res_5y_fail", label: "Менее 5 лет", next: "resident_basis", scoring: { overall: -40, risk: +50 } }
+        ]
+    },
+
+    resident_basis: {
+        question: "На каком основании вы находились в Польше большую часть этих 5 лет?",
+        subtitle: "Студенческий стаж учитывается Ужондом по особому коэффициенту.",
+        type: "options",
+        options: [
+            { id: "res_base_work", label: "По работе, бизнесу или воссоединению семьи", next: "resident_language", scoring: { stabilityScore: +15, employerReliability: +10 } },
+            { id: "res_base_study", label: "В основном по учебе (студенческая карта / виза)", next: "resident_language", scoring: { overall: -20, risk: +30 } }
+        ]
+    },
+
+    resident_language: {
+        question: "Есть ли у вас подтверждение знания польского языка (уровень B1)?",
+        subtitle: "Без подтвержденного знания языка подача на статус Резидента ЕС невозможна.",
+        type: "options",
+        options: [
+            { id: "res_lang_cert", label: "Да, гос. сертификат B1 или диплом польского ВУЗа", next: "resident_income_history", scoring: { documentReadiness: +25, overall: +15 } },
+            { id: "res_lang_szkola", label: "Да, есть диплом полицеальной школы", next: "resident_income_history", scoring: { documentReadiness: +15, overall: +10 } },
+            { id: "res_lang_plan", label: "Пока нет, планирую сдавать гос. экзамен", next: "resident_income_history", scoring: { documentReadiness: -15, risk: +15 } },
+            { id: "res_lang_none", label: "Нет и не планирую сдавать", next: "resident_income_history", scoring: { overall: -50, risk: +50 } }
+        ]
+    },
+
+    resident_income_history: {
+        question: "Каков статус вашей занятости и меняли ли вы работу за последние 3 года?",
+        subtitle: "Инспектор затребует налоговые декларации (PIT) за последние 3 года для проверки стабильности дохода.",
+        type: "options",
+        options: [
+            { id: "res_inc_stable", label: "Работаю официально, за 3 года работу не менял(а) / без перерывов", next: "nationality", scoring: { incomeQuality: +25, stabilityScore: +20, overall: +15 } },
+            { id: "res_inc_gaps", label: "Работаю официально, но часто менял(а) работу, были периоды без дохода", next: "nationality", scoring: { incomeQuality: -15, risk: +20 } },
+            { id: "res_inc_nowork", label: "На данный момент официально не работаю", next: "nationality", scoring: { overall: -40, risk: +50, incomeQuality: -30 } }
+        ]
+    },
+
     fam_relative_work: {
         question: "Работает ли официально член семьи, к которому вы переезжаете?",
         subtitle: "Наличие стабильного источника дохода у принимающей стороны — обязательное условие для воссоединения.",
@@ -850,7 +925,8 @@ function bindOptionButtons(stepId) {
                 else if (goal === 'goal_family') nextStep = 'fam_relative_work';
                 else if (goal === 'goal_speedup') nextStep = 'waiting_time_input';
                 // Новые типы планирования направляем в общую ветку проверки базовых критериев (гражданство/основания)
-                else if (goal === 'goal_staly' || goal === 'goal_resident') nextStep = 'nationality';
+                else if (goal === 'goal_staly') nextStep = 'staly_basis';
+                else if (goal === 'goal_resident') nextStep = 'resident_years';
             }
 
             setTimeout(() => renderStep(nextStep), 200);
@@ -1152,12 +1228,12 @@ function runAIAnalysis() {
 // ── Цены жёстко зафиксированы по требованию ──
 //   • Карта побыта (стандарт): 1300 PLN  (300 PLN аванс + 1000 PLN после подачи)
 //   • Ускорение (goal_speedup): 500 PLN  (только ускорение — Ponaglenie)
-function calcPrice(score, redFlagsCount, isSpeedupPath) {
-    return isSpeedupPath ? 500 : 1300;
+// ── Цены в зависимости от типа дела ──
+function calcPrice(goal) {
+    if (goal === 'goal_speedup') return 500;
+    if (goal === 'goal_staly' || goal === 'goal_resident') return 1600;
+    return 1300;
 }
-
-// ВНИМАНИЕ: функции handleShare() и activateDiscount(), а также блок fomo-share-block
-// полностью удалены — динамические скидки за репост снижали конверсию.
 
 function renderFinalResults(analysis, originalScore) {
     const container = document.getElementById('question-container');
@@ -1172,6 +1248,14 @@ function renderFinalResults(analysis, originalScore) {
     const cukrIncome = answers['cukr_income']?.value;
     const famWork = answers['fam_relative_work']?.value;
 
+    const stalyBasis = answers['staly_basis']?.value;
+    const stalyMarriage = answers['staly_marriage_dates']?.value;
+
+    const resYears = answers['resident_years']?.value;
+    const resBasis = answers['resident_basis']?.value;
+    const resLang = answers['resident_language']?.value;
+    const resInc = answers['resident_income_history']?.value;
+
     if (goal === 'goal_work' && contract === 'w_no_contract') {
         score = Math.min(score, 15);
         criticalRiskMessage = "Вы выбрали ВНЖ по работе, но у вас пока нет официального контракта. Без Umowa o pracę, Zlecenie или B2B Ужонд выдаст 100% отказ. Сначала необходимо легализовать ваш доход.";
@@ -1184,12 +1268,64 @@ function renderFinalResults(analysis, originalScore) {
         score = Math.min(score, 10);
         criticalRiskMessage = "Для воссоединения семьи принимающий родственник обязан иметь стабильный официальный доход в Польше. Без подтвержденного дохода Ужонд не одобрит вам Карту Побыту.";
     }
+    else if (goal === 'goal_staly' && stalyBasis === 'staly_long_residence') {
+        score = Math.min(score, 15);
+        criticalRiskMessage = "Запрос Сталого Побыта на основании 5 лет проживания не предусмотрен законом. Данный критерий подходит исключительно для получения статуса долгосрочного резидента ЕС. Вам нужно изменить программу подачи.";
+    }
+    else if (goal === 'goal_staly' && stalyBasis === 'staly_marriage' && stalyMarriage === 'staly_m_fail') {
+        score = Math.min(score, 10);
+        criticalRiskMessage = "Не соблюдены временные рамки. Для получения Сталого Побыта по браку ваш союз должен длиться не менее 3 лет, и как минимум 2 года из них вы обязаны непрерывно находиться в Польше по текущему ВНЖ.";
+    }
+
+    else if (goal === 'goal_staly' && stalyBasis === 'staly_marriage' && stalyMarriage === 'staly_m_fail') {
+        score = Math.min(score, 10);
+        criticalRiskMessage = "Не соблюдены временные рамки. Для получения Сталого Побыта по браку ваш союз должен длиться не менее 3 лет, и как минимум 2 года из них вы обязаны непрерывно находиться в Польше по текущему ВНЖ.";
+    }
+
+    // ── СТОП-ФАКТОРЫ ДЛЯ РЕЗИДЕНТА ЕС ──
+    else if (goal === 'goal_resident' && resYears === 'res_5y_fail') {
+        score = Math.min(score, 10);
+        criticalRiskMessage = "Закон требует минимум 5 лет непрерывного пребывания в Польше для статуса Резидента ЕС. На данный момент вам нужно подаваться на обычный временный вид на жительство (Karta Czasowego Pobytu).";
+    }
+    else if (goal === 'goal_resident' && resLang === 'res_lang_none') {
+        score = Math.min(score, 5);
+        criticalRiskMessage = "Без государственного сертификата владения польским языком на уровне B1 (или польского диплома) статус Резидента ЕС получить невозможно. Это абсолютное требование закона.";
+    }
+    else if (goal === 'goal_resident' && resInc === 'res_inc_nowork') {
+        score = Math.min(score, 15);
+        criticalRiskMessage = "На момент подачи заявления на Резидента ЕС у вас должен быть стабильный и регулярный источник дохода (действующий контракт). Сейчас подача приведет к отказу.";
+    }
+
+    if (stalyBasis === 'staly_long_residence' && !AnalyzerState.redFlags.includes("Неверно выбран тип постоянного вида на жительство (требуется Резидент ЕС)")) {
+        AnalyzerState.redFlags.push("Неверно выбран тип постоянного вида на жительство (требуется Резидент ЕС)");
+    }
+    if (stalyMarriage === 'staly_m_fail' && !AnalyzerState.redFlags.includes("Недостаточный срок нахождения в браке или проживания по ВНЖ")) {
+        AnalyzerState.redFlags.push("Недостаточный срок нахождения в браке или проживания по ВНЖ");
+    }
+    if (answers['staly_integration']?.value === 'staly_int_no' && !AnalyzerState.redFlags.includes("Слабая экономическая/социальная интеграция (риск признания фиктивного намерения селиться)")) {
+        AnalyzerState.redFlags.push("Слабая экономическая/социальная интеграция (риск признания фиктивного намерения селиться)");
+    }
+    // ── КРАСНЫЕ ФЛАГИ ДЛЯ РЕЗИДЕНТА ЕС ──
+    if (resBasis === 'res_base_study' && !AnalyzerState.redFlags.includes("Срок пребывания по учебе засчитывается только на 50%")) {
+        AnalyzerState.redFlags.push("Срок пребывания по учебе засчитывается только на 50%");
+    }
+    if (resLang === 'res_lang_szkola' && !AnalyzerState.redFlags.includes("Диплом полицеальной школы принимается только до сентября")) {
+        AnalyzerState.redFlags.push("Диплом полицеальной школы принимается только до сентября");
+    }
+    if (resLang === 'res_lang_plan' && !AnalyzerState.redFlags.includes("Подача документов невозможна до получения сертификата B1")) {
+        AnalyzerState.redFlags.push("Подача документов невозможна до получения сертификата B1");
+    }
+    if (resInc === 'res_inc_gaps' && !AnalyzerState.redFlags.includes("Перерывы в трудоустройстве: Ужонд будет детально изучать PIT-ы за 3 года")) {
+        AnalyzerState.redFlags.push("Перерывы в трудоустройстве: Ужонд будет детально изучать PIT-ы за 3 года");
+    }
 
     const name = AnalyzerState.contactInfo.name || 'Клиент';
     const scoreClass = getScoreClass(score); 
     const redFlags = AnalyzerState.redFlags;
-    const isSpeedupPath = AnalyzerState.answers['main_goal']?.value === 'goal_speedup';
-    const basePrice = calcPrice(score, redFlags.length, isSpeedupPath);
+    
+    const isSpeedupPath = goal === 'goal_speedup';
+    const isStalyOrResident = goal === 'goal_staly' || goal === 'goal_resident';
+    const basePrice = calcPrice(goal);
 
     const fallbackDefault = {
         headline: "Анализ завершён — требуется консультация специалиста",
@@ -1214,7 +1350,7 @@ function renderFinalResults(analysis, originalScore) {
         urgent_actions: ["Подать Ponaglenie", "Запросить Wgląd", "Обновить ZUS"],
         wezwanie_probability: "Низкая",
         refusal_probability: "Низкая",
-        timeline: "1.5 – 3 мес.",
+        timeline: "до 35 дней",
         doc_checklist: ["Внёсек со штампом", "Все Wezwanie", "Оплата пошлины", "Хронология"],
         closing_advice: "Дела с жалобами рассматриваются в приоритетном порядке."
     };
@@ -1224,9 +1360,7 @@ function renderFinalResults(analysis, originalScore) {
     const urzadId = answers['urzad_location']?.value;
     if (urzadId && FLOW['urzad_location']) {
         const urzadOpt = FLOW['urzad_location'].options.find(o => o.id === urzadId);
-
         if (isSpeedupPath) {
-            // Срок для ускорения всегда фиксирован
             a.timeline = "до 35 дней";
         } else if (urzadOpt && urzadOpt.expected_wait) {
             const minWait = urzadOpt.expected_wait;
@@ -1242,128 +1376,85 @@ function renderFinalResults(analysis, originalScore) {
 
     const MAKE_WEBHOOK_URL = 'https://hook.eu1.make.com/58m3066jyr2wr7pm5g6ql6zvb2utponu';
 
-    let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов (Изначально было: ${originalScore})\n`;
-    if (criticalRiskMessage) {
-        answersLog += `🚨 СРАБОТАЛ СТОП-ФАКТОР: ${criticalRiskMessage}\n`;
-    }
+    let answersLog = `🎯 РЕЗУЛЬТАТ АНАЛИЗА: ${score} баллов\n`;
+    if (criticalRiskMessage) answersLog += `🚨 СРАБОТАЛ СТОП-ФАКТОР: ${criticalRiskMessage}\n`;
     answersLog += `-----------------------------------\n\n`;
     
     if (AnalyzerState.history && AnalyzerState.history.length > 0) {
         AnalyzerState.history.forEach((stepId, index) => {
             const step = FLOW[stepId];
             if (step && step.type !== 'onboarding' && step.type !== 'lead_gate' && step.question) {
-                let answerText = 'Пропущен';
-                const savedAns = AnalyzerState.answers[stepId];
-                if (savedAns) {
-                    answerText = savedAns.label || savedAns.value || 'Нет данных';
-                }
-                answersLog += `❓ Вопрос ${index}: ${step.question}\n`;
-                answersLog += `👉 Ответ: ${answerText}\n\n`;
+                let answerText = AnalyzerState.answers[stepId] ? AnalyzerState.answers[stepId].label : 'Нет данных';
+                answersLog += `❓ ${step.question}\n👉 ${answerText}\n\n`;
             }
         });
     }
 
-    const payload = {
-        name: AnalyzerState.contactInfo.name || 'Без имени',
-        phone: AnalyzerState.contactInfo.phone || 'Без телефона',
-        telegram: AnalyzerState.contactInfo.telegram || '',
-        service: 'Анализатор ВНЖ (AI)', 
-        source: 'analyzer_quiz',       
-        comment: answersLog,
-        submitted_at: new Date().toISOString(),
-
-        analyzer_score: score,
-        analyzer_price: basePrice,       
-        analyzer_timeline: a.timeline,   
-        downloaded_pdf: false,
-    };
-
     fetch(MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    }).then(res => res.json()).then(data => {
-        AnalyzerState.notionPageId = data.notion_page_id || null;
-        console.log('✅ Анкета улетела в CRM! Page ID:', AnalyzerState.notionPageId);
-    }).catch(err => {
-        console.error('❌ Ошибка отправки аналитики:', err);
-    });
+        body: JSON.stringify({
+            name: AnalyzerState.contactInfo.name || 'Без имени',
+            phone: AnalyzerState.contactInfo.phone || 'Без телефона',
+            telegram: AnalyzerState.contactInfo.telegram || '',
+            service: 'Анализатор ВНЖ (AI)', 
+            source: 'analyzer_quiz',       
+            comment: answersLog,
+            submitted_at: new Date().toISOString(),
+            analyzer_score: score,
+            analyzer_price: basePrice,       
+            analyzer_timeline: a.timeline,   
+            downloaded_pdf: false,
+        })
+    }).then(res => res.json()).then(data => AnalyzerState.notionPageId = data.notion_page_id || null).catch(e => console.error(e));
     
-    if (progressContainer) {
-        const finalTotal = getDynamicTotalSteps();
-        document.getElementById('progress-fill').style.width = '100%';
-        
-        const stepCurrent = document.getElementById('step-current');
-        const stepTotal = document.getElementById('step-total');
-        
-        if (stepCurrent) stepCurrent.textContent = finalTotal;
-        if (stepTotal) stepTotal.textContent = finalTotal; 
-    }
+    if (progressContainer) document.getElementById('progress-fill').style.width = '100%';
 
     const criticalHtml = criticalRiskMessage ? `
         <div class="result-card accent-border" style="border-left-color: #EF4444; background-color: rgba(239, 68, 68, 0.05); margin-bottom: 1.5rem;">
-            <div class="result-card-header">
-                <span class="result-card-label" style="color: #EF4444;">🚨 Критический риск отказа</span>
-            </div>
-            <p class="result-card-text" style="color: #EF4444; font-weight: 500;">
-                ${criticalRiskMessage}
-            </p>
-        </div>
-    ` : '';
-
-    const deadlineInfo = AnalyzerState.getDeadlineInfo();
-    const deadlineHtml = deadlineInfo ? (() => {
-        let color, bg, icon, msg;
-        if (deadlineInfo.isCritical) {
-            color = '#EF4444';
-            bg    = 'rgba(239,68,68,0.05)';
-            icon  = '🚨';
-            msg   = `До истечения документа осталось <strong>${deadlineInfo.daysLeft} дней</strong> — это критически мало. Подавать документы нужно <strong>сегодня</strong>. Каждый просроченный день увеличивает риск незаконного пребывания.`;
-        } else if (deadlineInfo.isUrgent) {
-            color = '#F59E0B';
-            bg    = 'rgba(245,158,11,0.05)';
-            icon  = '⏳';
-            msg   = `До истечения документа <strong>${deadlineInfo.daysLeft} дней</strong>. Рекомендуем подать документы не позже <strong>${deadlineInfo.submitBy}</strong>. Начинайте сбор папки прямо сейчас.`;
-        } else {
-            color = 'var(--accent-color)';
-            bg    = 'rgba(16,185,129,0.04)';
-            icon  = '📅';
-            msg   = `До истечения документа <strong>${deadlineInfo.daysLeft} дней</strong>. Рекомендуемый крайний срок подачи — <strong>${deadlineInfo.submitBy}</strong>. Не откладывайте сбор документов.`;
-        }
-        return `
-        <div class="result-card accent-border" style="border-left-color: ${color}; background-color: ${bg}; margin-bottom: 1.5rem;">
-            <div class="result-card-header">
-                <span class="result-card-label" style="color: ${color};">${icon} Дедлайн подачи документов</span>
-            </div>
-            <p class="result-card-text" style="line-height: 1.6;">${msg}</p>
-        </div>`;
-    })() : '';
+            <div class="result-card-header"><span class="result-card-label" style="color: #EF4444;">🚨 Критический риск отказа</span></div>
+            <p class="result-card-text" style="color: #EF4444; font-weight: 500;">${criticalRiskMessage}</p>
+        </div>` : '';
 
     container.classList.add('hidden');
     setTimeout(() => {
 
-        // ── Массивный блок ЦЕНА + ГЛАВНЫЙ CTA (идёт первым после метрик) ──
-        // Для ускорения: 500 PLN (только ускорение), срок «до 35 дней».
-        // Для стандарта: 1300 PLN (300 PLN аванс + 1000 PLN после подачи).
-        const priceCtaHtml = isSpeedupPath ? `
+        let priceCtaHtml = '';
+        
+        if (isSpeedupPath) {
+            priceCtaHtml = `
             <div class="dash-price-cta">
                 <div class="dpc-price-col">
-                    <span class="dpc-label">Услуга ускорения (Ponaglenie)</span>
+                    <span class="dpc-label">Ускорение (Ponaglenie)</span>
                     <div class="dpc-value">500 <span class="dpc-currency">PLN</span></div>
                     <span class="dpc-hint">Срок: <strong>до 35 дней</strong></span>
                 </div>
                 <div class="dpc-cta-col">
-                    <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">
-                        🚀 Ускорить дело →
-                    </a>
+                    <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">🚀 Ускорить дело →</a>
                     <p class="fomo-response-hint">⚡ Ответим за 12 минут · 47 человек за неделю с нами</p>
                     <div class="dpc-secondary">
                         <button class="btn-outline df-btn-sec" id="btn-transfer-case">👨‍💼 Передать мой кейс специалисту</button>
-                        <button class="btn-outline df-btn-sec" id="btn-dash-pdf">📄 Скачать PDF</button>
                     </div>
                 </div>
-            </div>
-        ` : `
+            </div>`;
+        } else if (isStalyOrResident) {
+            priceCtaHtml = `
+            <div class="dash-price-cta">
+                <div class="dpc-price-col">
+                    <span class="dpc-label">Сталый побыт / Резидент ЕС</span>
+                    <div class="dpc-value">1600 <span class="dpc-currency">PLN</span></div>
+                    <span class="dpc-hint"><strong>600 PLN</strong> — аванс &nbsp;·&nbsp; <strong>1000 PLN</strong> — после подачи</span>
+                </div>
+                <div class="dpc-cta-col">
+                    <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">📋 Разобрать кейс бесплатно →</a>
+                    <p class="fomo-response-hint">⚡ Ответим за 12 минут · 47 человек за неделю с нами</p>
+                    <div class="dpc-secondary">
+                        <button class="btn-outline df-btn-sec" id="btn-transfer-case">👨‍💼 Передать мой кейс специалисту</button>
+                    </div>
+                </div>
+            </div>`;
+        } else {
+            priceCtaHtml = `
             <div class="dash-price-cta">
                 <div class="dpc-price-col">
                     <span class="dpc-label">Сопровождение под ключ</span>
@@ -1371,280 +1462,70 @@ function renderFinalResults(analysis, originalScore) {
                     <span class="dpc-hint"><strong>300 PLN</strong> — аванс &nbsp;·&nbsp; <strong>1000 PLN</strong> — после подачи</span>
                 </div>
                 <div class="dpc-cta-col">
-                    <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">
-                        📋 Разобрать кейс бесплатно →
-                    </a>
+                    <a href="https://t.me/residia_consulting" target="_blank" class="btn-solid df-btn">📋 Разобрать кейс бесплатно →</a>
                     <p class="fomo-response-hint">⚡ Ответим за 12 минут · 47 человек за неделю с нами</p>
                     <div class="dpc-secondary">
                         <button class="btn-outline df-btn-sec" id="btn-transfer-case">👨‍💼 Передать мой кейс специалисту</button>
-                        <button class="btn-outline df-btn-sec" id="btn-dash-pdf">📄 Скачать PDF</button>
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
+        }
 
-
-        let htmlTemplate = `
+        container.innerHTML = `
             <div class="dash-wrapper">
-                
                 <div class="dash-header">
                     <div class="dash-badge">${isSpeedupPath ? 'Анализ задержки' : 'Анализ шансов'}</div>
                     <h2 class="dash-title">${name}, ваш экспресс-разбор готов.</h2>
                     <p class="dash-quote">"${a.headline}"</p>
                 </div>
-
                 ${criticalHtml}
-                ${deadlineHtml}
-
                 <div class="dash-metrics-ribbon">
-                    <div class="dm-score dm-${scoreClass}">
-                        <span class="dm-score-val">${score}</span>
-                        <span class="dm-score-lbl">/100</span>
-                    </div>
+                    <div class="dm-score dm-${scoreClass}"><span class="dm-score-val">${score}</span><span class="dm-score-lbl">/100</span></div>
                     <div class="dm-divider"></div>
-                    <div class="dm-item">
-                        <span class="dm-label">${isSpeedupPath ? 'Риск задержки' : 'Риск wezwanie'}</span>
-                        <span class="dm-val prob-${getProbClass(a.wezwanie_probability)}">${a.wezwanie_probability}</span>
-                    </div>
-                    <div class="dm-item">
-                        <span class="dm-label">Риск отказа</span>
-                        <span class="dm-val prob-${getProbClass(a.refusal_probability)}">${a.refusal_probability}</span>
-                    </div>
-                    <div class="dm-item">
-                        <span class="dm-label">Примерные сроки ожидания:</span>
-                        <span class="dm-val text-accent">${a.timeline}</span>
-                    </div>
+                    <div class="dm-item"><span class="dm-label">${isSpeedupPath ? 'Риск задержки' : 'Риск wezwanie'}</span><span class="dm-val prob-${getProbClass(a.wezwanie_probability)}">${a.wezwanie_probability}</span></div>
+                    <div class="dm-item"><span class="dm-label">Риск отказа</span><span class="dm-val prob-${getProbClass(a.refusal_probability)}">${a.refusal_probability}</span></div>
+                    <div class="dm-item"><span class="dm-label">Примерные сроки:</span><span class="dm-val text-accent">${a.timeline}</span></div>
                 </div>
-
-                <!-- ЦЕНА + ГЛАВНЫЙ CTA: первый элемент после метрик, визуально массивный -->
                 ${priceCtaHtml}
-
                 <div class="dash-grid">
                     <div class="dash-card">
                         <h4 class="dc-title">Резюме и стратегия</h4>
                         <p class="dc-text"><strong>Вердикт:</strong> ${a.overall_verdict}</p>
                         <p class="dc-text"><strong>Цель:</strong> ${a.main_basis}</p>
-                        
                         <h4 class="dc-title" style="margin-top: 1rem;">Первоочередные шаги</h4>
-                        <ul class="dc-list">
-                            ${a.urgent_actions.map(action => `<li>${action}</li>`).join('')}
-                        </ul>
+                        <ul class="dc-list">${a.urgent_actions.map(action => `<li>${action}</li>`).join('')}</ul>
                     </div>
-
                     <div class="dash-card">
                         <div class="dc-split">
-                            <div class="dc-half">
-                                <h4 class="dc-title green">✅ Плюсы</h4>
-                                <ul class="dc-list-small">
-                                    ${a.strengths.map(s => `<li>${s}</li>`).join('')}
-                                </ul>
-                            </div>
-                            <div class="dc-half">
-                                <h4 class="dc-title red">⚠️ Риски</h4>
-                                <ul class="dc-list-small">
-                                    ${a.critical_issues.map(i => `<li>${i}</li>`).join('')}
-                                </ul>
-                            </div>
+                            <div class="dc-half"><h4 class="dc-title green">✅ Плюсы</h4><ul class="dc-list-small">${a.strengths.map(s => `<li>${s}</li>`).join('')}</ul></div>
+                            <div class="dc-half"><h4 class="dc-title red">⚠️ Риски</h4><ul class="dc-list-small">${a.critical_issues.map(i => `<li>${i}</li>`).join('')}</ul></div>
                         </div>
                         ${redFlags.length > 0 ? `<div class="dc-flags">🚩 <strong>Красные флаги:</strong> ${redFlags.join('; ')}</div>` : ''}
-                        
-                        <h4 class="dc-title" style="margin-top: 1rem;">📁 Документы (чек-лист)</h4>
-                        <div class="dc-tags">
-                            ${a.doc_checklist.map(d => `<span class="dc-tag">${d}</span>`).join('')}
-                        </div>
+                        <h4 class="dc-title" style="margin-top: 1rem;">📁 Документы</h4>
+                        <div class="dc-tags">${a.doc_checklist.map(d => `<span class="dc-tag">${d}</span>`).join('')}</div>
                     </div>
                 </div>
-
             </div>
         `;
         
-        container.innerHTML = htmlTemplate;
         container.classList.remove('hidden');
         container.classList.add('active');
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // ── Кнопка «Передать мой кейс специалисту» ──
-        // Отправляет analyzer_call_request в Make.com, затем блокирует повторный
-        // клик и меняет текст на «Заявка отправлена».
         const btnTransfer = document.getElementById('btn-transfer-case');
         if (btnTransfer) {
             btnTransfer.addEventListener('click', () => {
                 if (btnTransfer.disabled) return;
                 btnTransfer.disabled = true;
                 btnTransfer.textContent = '⏳ Отправка...';
-
                 fetch(MAKE_WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: AnalyzerState.contactInfo.name || 'Без имени',
-                        phone: AnalyzerState.contactInfo.phone || 'Без телефона',
-                        telegram: AnalyzerState.contactInfo.telegram || '',
-                        notion_page_id: AnalyzerState.notionPageId,
-                        source: 'analyzer_call_request',
-                        analyzer_score: score,
-                        analyzer_price: basePrice,
-                        submitted_at: new Date().toISOString()
-                    })
+                    body: JSON.stringify({ name: AnalyzerState.contactInfo.name, phone: AnalyzerState.contactInfo.phone, source: 'analyzer_call_request' })
                 }).then(() => {
-                    // Успех: фиксируем визуально, повторный клик уже заблокирован выше
                     btnTransfer.textContent = '✅ Заявка отправлена';
                     btnTransfer.style.borderColor = 'var(--accent-color)';
                     btnTransfer.style.color = 'var(--accent-color)';
-                }).catch(err => {
-                    // Ошибка сети: возвращаем кнопку в исходное состояние
-                    console.error('Ошибка отправки заявки:', err);
-                    btnTransfer.disabled = false;
-                    btnTransfer.textContent = '👨‍💼 Передать мой кейс специалисту';
-                });
-
-                if (typeof fbq === 'function') {
-                    fbq('trackCustom', 'TransferCase');
-                }
-            });
-        }
-
-        const btnPdf = document.getElementById('btn-dash-pdf');
-        if (btnPdf) {
-            btnPdf.addEventListener('click', () => {
-                if (btnPdf.classList.contains('is-loading')) return;
-                
-                const originalText = btnPdf.innerHTML;
-                btnPdf.innerHTML = '⏳ Формируем PDF...';
-                btnPdf.classList.add('is-loading');
-
-                AnalyzerState.downloadedPdf = true;
-                if (typeof fbq === 'function') {
-                    fbq('trackCustom', 'DownloadPDF');
-                }
-
-                fetch(MAKE_WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: AnalyzerState.contactInfo.name,
-                        phone: AnalyzerState.contactInfo.phone,
-                        notion_page_id: AnalyzerState.notionPageId,
-                        source: 'analyzer_pdf_download',
-                        downloaded_pdf: true,
-                        submitted_at: new Date().toISOString()
-                    })
-                }).catch(e => console.error(e));
-
-                // ── FIX: html2pdf не видит «отвязанный» от DOM элемент. ──
-                // Создаём скрытый контейнер, добавляем его в <body>, рендерим,
-                // затем гарантированно удаляем из DOM (и в .then, и в .catch).
-                const pdfContainer = document.createElement('div');
-                pdfContainer.style.cssText = 'position:absolute; left:-9999px; top:0; visibility:hidden;';
-                pdfContainer.innerHTML = `
-                    <div style="width: 800px; padding: 40px; background: #ffffff; color: #1a1a1a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; box-sizing: border-box;">
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #10B981; padding-bottom: 20px; margin-bottom: 30px;">
-                            <div>
-                                <h2 style="margin: 0; color: #10B981; font-size: 28px; letter-spacing: -1px;">RESIDIA<span style="color:#1a1a1a;">.</span></h2>
-                                <p style="margin: 5px 0 0 0; color: #575F6C; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Migration Analyzer 2.1</p>
-                            </div>
-                            <div style="text-align: right;">
-                                <p style="margin: 0; font-size: 14px; font-weight: bold;">${new Date().toLocaleDateString('ru-RU')}</p>
-                                <p style="margin: 5px 0 0 0; font-size: 14px; color: #575F6C;">Клиент: ${name}</p>
-                            </div>
-                        </div>
-
-                        <h1 style="font-size: 24px; margin-bottom: 10px; color: #1a1a1a;">Персональный юридический разбор</h1>
-                        <p style="font-size: 16px; color: #575F6C; font-style: italic; margin-bottom: 30px; border-left: 3px solid #10B981; padding-left: 15px;">"${a.headline}"</p>
-
-                        <div style="display: flex; gap: 20px; margin-bottom: 30px;">
-                            <div style="flex: 1; background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
-                                <p style="margin: 0 0 5px 0; font-size: 11px; text-transform: uppercase; color: #575F6C; letter-spacing: 0.5px;">Итоговый балл</p>
-                                <p style="margin: 0; font-size: 32px; font-weight: bold; color: ${score >= 75 ? '#10B981' : score >= 50 ? '#f59e0b' : '#ef4444'};">${score}/100</p>
-                            </div>
-                            <div style="flex: 1; background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
-                                <p style="margin: 0 0 5px 0; font-size: 11px; text-transform: uppercase; color: #575F6C; letter-spacing: 0.5px;">Риск отказа</p>
-                                <p style="margin: 0; font-size: 20px; font-weight: bold;">${a.refusal_probability}</p>
-                            </div>
-                            <div style="flex: 1; background: #f8f9fa; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
-                                <p style="margin: 0 0 5px 0; font-size: 11px; text-transform: uppercase; color: #575F6C; letter-spacing: 0.5px;">Сроки ожидания</p>
-                                <p style="margin: 0; font-size: 20px; font-weight: bold; color: #10B981;">${a.timeline}</p>
-                            </div>
-                        </div>
-
-                        ${criticalRiskMessage ? `
-                        <div style="background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; padding: 15px 20px; margin-bottom: 30px; border-radius: 4px;">
-                            <p style="margin: 0 0 5px 0; color: #ef4444; font-weight: bold; font-size: 14px;">🚨 Критический риск</p>
-                            <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 1.5;">${criticalRiskMessage}</p>
-                        </div>` : ''}
-
-                        <div style="margin-bottom: 30px;">
-                            <h3 style="font-size: 15px; text-transform: uppercase; color: #10B981; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px;">Резюме и стратегия</h3>
-                            <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.5;"><strong>Вердикт:</strong> ${a.overall_verdict}</p>
-                            <p style="margin: 0; font-size: 14px; line-height: 1.5;"><strong>Основание:</strong> ${a.main_basis}</p>
-                        </div>
-
-                        <div style="display: flex; gap: 30px; margin-bottom: 30px;">
-                            <div style="flex: 1;">
-                                <h3 style="font-size: 14px; color: #10B981; margin-bottom: 10px;">✅ Сильные стороны</h3>
-                                <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #333;">
-                                    ${a.strengths.map(s => `<li style="margin-bottom: 5px;">${s}</li>`).join('')}
-                                </ul>
-                            </div>
-                            <div style="flex: 1;">
-                                <h3 style="font-size: 14px; color: #ef4444; margin-bottom: 10px;">⚠️ Зоны риска</h3>
-                                <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #333;">
-                                    ${a.critical_issues.map(i => `<li style="margin-bottom: 5px;">${i}</li>`).join('')}
-                                </ul>
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom: 30px;">
-                            <h3 style="font-size: 15px; text-transform: uppercase; color: #10B981; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px;">Первоочередные действия</h3>
-                            <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6; color: #1a1a1a;">
-                                ${a.urgent_actions.map(action => `<li style="margin-bottom: 5px;">${action}</li>`).join('')}
-                            </ul>
-                        </div>
-
-                        <div style="margin-bottom: 30px; padding: 15px 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px;">
-                            <p style="margin: 0 0 5px 0; font-size: 13px; font-weight: bold; color: #10B981; text-transform: uppercase;">Стоимость сопровождения</p>
-                            <p style="margin: 0; font-size: 14px; color: #1a1a1a;">${isSpeedupPath ? '500 PLN — ускорение (Ponaglenie) · срок до 35 дней' : '1300 PLN (300 PLN аванс + 1000 PLN после подачи)'}</p>
-                        </div>
-
-                        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
-                            <p style="margin: 0 0 5px 0; font-size: 14px; font-weight: bold; color: #1a1a1a;">RESIDIA Consulting</p>
-                            <p style="margin: 0; font-size: 12px; color: #575F6C;">Связь с экспертом: +48 571 528 293 | Telegram: @residia_consulting</p>
-                        </div>
-                    </div>
-                `;
-
-                // Вставляем в DOM — без этого html2canvas рендерит пустой лист
-                document.body.appendChild(pdfContainer);
-
-                const opt = {
-                    margin:       0,
-                    filename:     `Residia_Analysis_${name.replace(/\s+/g, '_')}.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, useCORS: true, logging: false },
-                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                };
-
-                html2pdf().set(opt).from(pdfContainer.firstElementChild).save().then(() => {
-                    // Чистим временный узел из DOM
-                    if (document.body.contains(pdfContainer)) document.body.removeChild(pdfContainer);
-
-                    btnPdf.innerHTML = '✓ PDF скачан';
-                    btnPdf.style.borderColor = 'var(--accent-color)';
-                    btnPdf.style.color = 'var(--accent-color)';
-                    btnPdf.classList.remove('is-loading');
-                    
-                    setTimeout(() => {
-                        btnPdf.innerHTML = originalText;
-                        btnPdf.style.borderColor = '';
-                        btnPdf.style.color = '';
-                    }, 3000);
-                }).catch(err => {
-                    // На ошибке тоже убираем узел и разблокируем кнопку
-                    console.error('Ошибка генерации PDF:', err);
-                    if (document.body.contains(pdfContainer)) document.body.removeChild(pdfContainer);
-                    btnPdf.innerHTML = originalText;
-                    btnPdf.classList.remove('is-loading');
                 });
             });
         }
